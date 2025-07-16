@@ -5,29 +5,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Suivi des Stocks ONU</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#d95c14">
+  <link rel="stylesheet" href="style.css">
+  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
   <header>
-    <h1>Tableau de Suivi des Stocks ONU</h1>
+    <h1>Suivi des Stocks ONU</h1>
   </header>
-
   <nav>
     <ul class="tabs">
       <li class="tab" onclick="showTab('voiecreuse')">Voie Creuse</li>
       <li class="tab" onclick="showTab('bibliotheque')">Bibliothèque</li>
       <li class="tab" onclick="showTab('repartition')">Répartition</li>
       <li class="tab" onclick="showTab('restes')">Restes</li>
+      <li class="tab" onclick="showTab('visualisation')">Visualisation</li>
     </ul>
   </nav>
 
   <main>
     <section id="voiecreuse" class="tab-content active">
       <h2>Saisie - Voie Creuse</h2>
-      <form onsubmit="submitForm(event, 'Stock Voie Creuse')">
-        <input type="date" name="date" required />
+      <form onsubmit="envoyerMouvement(event, 'Stock Voie Creuse')">
+        <input type="date" name="date" required>
         <select name="type" required>
-          <option value="">-- Type --</option>
+          <option value="">Type</option>
           <option value="Entrée">Entrée</option>
           <option value="Sortie">Sortie</option>
         </select>
@@ -40,17 +43,17 @@
           <option value="rouleau scotch">rouleau scotch</option>
           <option value="papier blanc">papier blanc</option>
         </select>
-        <input type="number" name="quantite" placeholder="Quantité" required />
+        <input type="number" name="quantite" placeholder="Quantité" required>
         <button type="submit">Envoyer</button>
       </form>
     </section>
 
-    <section id="bibliotheque" class="tab-content" style="display:none;">
+    <section id="bibliotheque" class="tab-content">
       <h2>Saisie - Bibliothèque</h2>
-      <form onsubmit="submitForm(event, 'Stock Bibliothèque')">
-        <input type="date" name="date" required />
+      <form onsubmit="envoyerMouvement(event, 'Stock Bibliothèque')">
+        <input type="date" name="date" required>
         <select name="type" required>
-          <option value="">-- Type --</option>
+          <option value="">Type</option>
           <option value="Entrée">Entrée</option>
           <option value="Sortie">Sortie</option>
         </select>
@@ -63,16 +66,17 @@
           <option value="rouleau scotch">rouleau scotch</option>
           <option value="papier blanc">papier blanc</option>
         </select>
-        <input type="number" name="quantite" placeholder="Quantité" required />
+        <input type="number" name="quantite" placeholder="Quantité" required>
         <button type="submit">Envoyer</button>
       </form>
     </section>
 
-    <section id="repartition" class="tab-content" style="display:none;">
+    <section id="repartition" class="tab-content">
       <h2>Saisie - Répartition</h2>
-      <form onsubmit="submitForm(event, 'Répartition Journalière')">
-        <input type="date" name="date" required />
-        <select name="zone">
+      <form onsubmit="envoyerMouvement(event, 'Répartition Journalière')">
+        <input type="date" name="date" required>
+        <select name="zone" required>
+          <option value="">Zone</option>
           <option value="Etage 1">Etage 1</option>
           <option value="Etage 2">Etage 2</option>
           <option value="Etage 10">Etage 10</option>
@@ -83,7 +87,7 @@
           <option value="Bâtiment E">Bâtiment E</option>
           <option value="Tampon">Tampon</option>
         </select>
-        <select name="materiel">
+        <select name="materiel" required>
           <option value="Palettes 80x120">Palettes 80x120</option>
           <option value="Cadres-palette CFF">Cadres-palette CFF</option>
           <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
@@ -92,16 +96,16 @@
           <option value="rouleau scotch">rouleau scotch</option>
           <option value="papier blanc">papier blanc</option>
         </select>
-        <input type="number" name="quantite" placeholder="Quantité" required />
+        <input type="number" name="quantite" placeholder="Quantité" required>
         <button type="submit">Envoyer</button>
       </form>
     </section>
 
-    <section id="restes" class="tab-content" style="display:none;">
+    <section id="restes" class="tab-content">
       <h2>Saisie - Restes</h2>
-      <form onsubmit="submitForm(event, 'Restes Zones')">
-        <input type="date" name="date" required />
-        <select name="zone">
+      <form onsubmit="envoyerMouvement(event, 'Restes Zones')">
+        <input type="date" name="date" required>
+        <select name="zone" required>
           <option value="Etage 1">Etage 1</option>
           <option value="Etage 2">Etage 2</option>
           <option value="Etage 10">Etage 10</option>
@@ -121,47 +125,16 @@
           <option value="rouleau scotch">rouleau scotch</option>
           <option value="papier blanc">papier blanc</option>
         </select>
-        <input type="number" name="quantite" placeholder="Quantité restante" required />
-        <input type="text" name="retour" placeholder="Retour vers Voie Creuse ? Oui / Non" />
+        <input type="number" name="quantite" placeholder="Quantité" required>
         <button type="submit">Envoyer</button>
       </form>
+    </section>
+
+    <section id="visualisation" class="tab-content">
+      <h2>Visualisation</h2>
+      <div id="chart_div" style="width: 100%; height: 500px;"></div>
     </section>
   </main>
-
-  <script>
-    const url = "https://script.google.com/macros/s/AKfycbwp8hlOeo_pmX_ijkNS7ByFVRvzCOJqKURs7q6K5g6PouSCfq3dLV52iwAafP2J5-fWAg/exec";
-
-    function showTab(tabId) {
-      document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-      document.getElementById(tabId).style.display = 'block';
-    }
-
-    function submitForm(e, onglet) {
-      e.preventDefault();
-      const form = e.target;
-      const data = {
-        onglet: onglet,
-        date: form.date.value,
-        type: form.type ? form.type.value : "",
-        materiel: form.materiel.value,
-        quantite: form.quantite.value,
-        zone: form.zone ? form.zone.value : "",
-        retour: form.retour ? form.retour.value : ""
-      };
-
-      fetch(url, {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" }
-      }).then(res => {
-        if (res.ok) {
-          alert("Enregistré !");
-          form.reset();
-        } else {
-          alert("Erreur lors de l'envoi.");
-        }
-      });
-    }
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>

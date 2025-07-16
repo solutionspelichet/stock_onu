@@ -1,80 +1,43 @@
 
-const apiURL = 'https://script.google.com/macros/s/AKfycbwp8hlOeo_pmX_ijkNS7ByFVRvzCOJqKURs7q6K5g6PouSCfq3dLV52iwAafP2J5-fWAg/exec';
+const webAppUrl = 'https://script.google.com/macros/s/AKfycbwp8hlOeo_pmX_ijkNS7ByFVRvzCOJqKURs7q6K5g6PouSCfq3dLV52iwAafP2J5-fWAg/exec';
+
+function showTab(id) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
 
 function envoyerMouvement(e, feuille) {
   e.preventDefault();
   const form = e.target;
-  const data = {
-    type: form.type?.value || "",
-    materiel: form.materiel.value,
-    quantite: parseInt(form.quantite.value),
-    feuille: feuille
-  };
+  const params = new URLSearchParams();
+  params.append("feuille", feuille);
+  params.append("date", form.date.value);
+  if (form.type) params.append("type", form.type.value);
+  if (form.zone) params.append("zone", form.zone.value);
+  params.append("materiel", form.materiel.value);
+  params.append("quantite", form.quantite.value);
 
-  fetch(apiURL, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: { 'Content-Type': 'application/json' }
-  }).then(res => {
-    if (res.ok) {
-      alert("Enregistré !");
+  fetch(webAppUrl, {
+    method: "POST",
+    body: params
+  }).then(res => res.text())
+    .then(() => {
+      alert("✅ Enregistré !");
       form.reset();
-    } else {
-      alert("Erreur lors de l'envoi !");
-    }
-  });
+      drawChart(); // mettre à jour
+    });
 }
 
-function envoyerRepartition(e) {
-  e.preventDefault();
-  const form = e.target;
-  const data = {
-    zone: form.zone.value,
-    materiel: form.materiel.value,
-    quantite: parseInt(form.quantite.value),
-    feuille: 'Répartition Journalière'
-  };
-  fetch(apiURL, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: { 'Content-Type': 'application/json' }
-  }).then(res => {
-    if (res.ok) {
-      alert("Répartition enregistrée !");
-      form.reset();
-    } else {
-      alert("Erreur lors de l'envoi !");
-    }
-  });
-}
+google.charts.load('current', {'packages':['corechart']});
+google.charts.setOnLoadCallback(drawChart);
 
-function envoyerRestes(e) {
-  e.preventDefault();
-  const form = e.target;
-  const data = {
-    zone: form.zone.value,
-    materiel: form.materiel.value,
-    quantite: parseInt(form.quantite.value),
-    retour: form.retour?.value || "",
-    feuille: 'Restes Zones'
-  };
-  fetch(apiURL, {
-    method: 'POST',
-    body: JSON.stringify(data),
-    headers: { 'Content-Type': 'application/json' }
-  }).then(res => {
-    if (res.ok) {
-      alert("Restes enregistrés !");
-      form.reset();
-    } else {
-      alert("Erreur lors de l'envoi !");
-    }
-  });
-}
-
-function showTab(id) {
-  document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelector(`.tab-button[onclick*="${id}"]`).classList.add('active');
-  document.getElementById(id).classList.add('active');
+function drawChart() {
+  fetch(webAppUrl + "?chart=1")
+    .then(res => res.json())
+    .then(json => {
+      const data = google.visualization.arrayToDataTable(json);
+      const options = { title: 'Quantité par matériel (Voie Creuse)', pieHole: 0.4 };
+      const chart = new google.visualization.PieChart(document.getElementById('chart_div'));
+      chart.draw(data, options);
+    });
 }
