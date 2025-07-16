@@ -1,0 +1,167 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Suivi des Stocks ONU</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Tableau de Suivi des Stocks ONU</h1>
+  </header>
+
+  <nav>
+    <ul class="tabs">
+      <li class="tab" onclick="showTab('voiecreuse')">Voie Creuse</li>
+      <li class="tab" onclick="showTab('bibliotheque')">Bibliothèque</li>
+      <li class="tab" onclick="showTab('repartition')">Répartition</li>
+      <li class="tab" onclick="showTab('restes')">Restes</li>
+    </ul>
+  </nav>
+
+  <main>
+    <section id="voiecreuse" class="tab-content active">
+      <h2>Saisie - Voie Creuse</h2>
+      <form onsubmit="submitForm(event, 'Stock Voie Creuse')">
+        <input type="date" name="date" required />
+        <select name="type" required>
+          <option value="">-- Type --</option>
+          <option value="Entrée">Entrée</option>
+          <option value="Sortie">Sortie</option>
+        </select>
+        <select name="materiel">
+          <option value="Palettes 80x120">Palettes 80x120</option>
+          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
+          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
+          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
+          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
+          <option value="rouleau scotch">rouleau scotch</option>
+          <option value="papier blanc">papier blanc</option>
+        </select>
+        <input type="number" name="quantite" placeholder="Quantité" required />
+        <button type="submit">Envoyer</button>
+      </form>
+    </section>
+
+    <section id="bibliotheque" class="tab-content" style="display:none;">
+      <h2>Saisie - Bibliothèque</h2>
+      <form onsubmit="submitForm(event, 'Stock Bibliothèque')">
+        <input type="date" name="date" required />
+        <select name="type" required>
+          <option value="">-- Type --</option>
+          <option value="Entrée">Entrée</option>
+          <option value="Sortie">Sortie</option>
+        </select>
+        <select name="materiel">
+          <option value="Palettes 80x120">Palettes 80x120</option>
+          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
+          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
+          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
+          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
+          <option value="rouleau scotch">rouleau scotch</option>
+          <option value="papier blanc">papier blanc</option>
+        </select>
+        <input type="number" name="quantite" placeholder="Quantité" required />
+        <button type="submit">Envoyer</button>
+      </form>
+    </section>
+
+    <section id="repartition" class="tab-content" style="display:none;">
+      <h2>Saisie - Répartition</h2>
+      <form onsubmit="submitForm(event, 'Répartition Journalière')">
+        <input type="date" name="date" required />
+        <select name="zone">
+          <option value="Etage 1">Etage 1</option>
+          <option value="Etage 2">Etage 2</option>
+          <option value="Etage 10">Etage 10</option>
+          <option value="Reading Room 1">Reading Room 1</option>
+          <option value="Reading Room 3">Reading Room 3</option>
+          <option value="Compactus">Compactus</option>
+          <option value="B26">B26</option>
+          <option value="Bâtiment E">Bâtiment E</option>
+          <option value="Tampon">Tampon</option>
+        </select>
+        <select name="materiel">
+          <option value="Palettes 80x120">Palettes 80x120</option>
+          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
+          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
+          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
+          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
+          <option value="rouleau scotch">rouleau scotch</option>
+          <option value="papier blanc">papier blanc</option>
+        </select>
+        <input type="number" name="quantite" placeholder="Quantité" required />
+        <button type="submit">Envoyer</button>
+      </form>
+    </section>
+
+    <section id="restes" class="tab-content" style="display:none;">
+      <h2>Saisie - Restes</h2>
+      <form onsubmit="submitForm(event, 'Restes Zones')">
+        <input type="date" name="date" required />
+        <select name="zone">
+          <option value="Etage 1">Etage 1</option>
+          <option value="Etage 2">Etage 2</option>
+          <option value="Etage 10">Etage 10</option>
+          <option value="Reading Room 1">Reading Room 1</option>
+          <option value="Reading Room 3">Reading Room 3</option>
+          <option value="Compactus">Compactus</option>
+          <option value="B26">B26</option>
+          <option value="Bâtiment E">Bâtiment E</option>
+          <option value="Tampon">Tampon</option>
+        </select>
+        <select name="materiel">
+          <option value="Palettes 80x120">Palettes 80x120</option>
+          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
+          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
+          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
+          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
+          <option value="rouleau scotch">rouleau scotch</option>
+          <option value="papier blanc">papier blanc</option>
+        </select>
+        <input type="number" name="quantite" placeholder="Quantité restante" required />
+        <input type="text" name="retour" placeholder="Retour vers Voie Creuse ? Oui / Non" />
+        <button type="submit">Envoyer</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    const url = "https://script.google.com/macros/s/AKfycbwp8hlOeo_pmX_ijkNS7ByFVRvzCOJqKURs7q6K5g6PouSCfq3dLV52iwAafP2J5-fWAg/exec";
+
+    function showTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+      document.getElementById(tabId).style.display = 'block';
+    }
+
+    function submitForm(e, onglet) {
+      e.preventDefault();
+      const form = e.target;
+      const data = {
+        onglet: onglet,
+        date: form.date.value,
+        type: form.type ? form.type.value : "",
+        materiel: form.materiel.value,
+        quantite: form.quantite.value,
+        zone: form.zone ? form.zone.value : "",
+        retour: form.retour ? form.retour.value : ""
+      };
+
+      fetch(url, {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" }
+      }).then(res => {
+        if (res.ok) {
+          alert("Enregistré !");
+          form.reset();
+        } else {
+          alert("Erreur lors de l'envoi.");
+        }
+      });
+    }
+  </script>
+</body>
+</html>

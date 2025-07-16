@@ -1,0 +1,47 @@
+
+body {
+  font-family: Trebuchet MS, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: #f9f9f9;
+}
+header {
+  background: orange;
+  color: white;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+}
+.logo {
+  height: 50px;
+  margin-right: 10px;
+}
+nav {
+  background: #333;
+}
+.tabs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+.tab {
+  padding: 10px 15px;
+  color: white;
+  cursor: pointer;
+}
+.tab:hover {
+  background: #555;
+}
+.tab-content {
+  padding: 20px;
+}
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+}
+input, select, button {
+  padding: 8px;
+}
