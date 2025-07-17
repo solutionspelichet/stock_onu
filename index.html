@@ -34,7 +34,7 @@
           <option value="Entrée">Entrée</option>
           <option value="Sortie">Sortie</option>
         </select>
-        <select name="materiel">
+        <select name="materiel" required>
           <option value="Palettes 80x120">Palettes 80x120</option>
           <option value="Cadres-palette CFF">Cadres-palette CFF</option>
           <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
@@ -57,7 +57,7 @@
           <option value="Entrée">Entrée</option>
           <option value="Sortie">Sortie</option>
         </select>
-        <select name="materiel">
+        <select name="materiel" required>
           <option value="Palettes 80x120">Palettes 80x120</option>
           <option value="Cadres-palette CFF">Cadres-palette CFF</option>
           <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
@@ -130,11 +130,21 @@
       </form>
     </section>
 
-    <section id="visualisation" class="tab-content">
-      <h2>Visualisation</h2>
-      <div id="chart_div" style="width: 100%; height: 500px;"></div>
-    </section>
-  </main>
+   
+  
+<section id="visualisation" class="tab-content" style="display:none;">
+  <h2>Visualisation des Stocks par Zone</h2>
+  <div id="chart_Voie_Creuse" style="margin-bottom: 40px;"></div>
+  <div id="chart_Bibliothèque" style="margin-bottom: 40px;"></div>
+  <div id="chart_Reading_Room_1" style="margin-bottom: 40px;"></div>
+  <div id="chart_Reading_Room_3" style="margin-bottom: 40px;"></div>
+  <div id="chart_Compactus" style="margin-bottom: 40px;"></div>
+  <div id="chart_B26" style="margin-bottom: 40px;"></div>
+  <div id="chart_Bâtiment_E" style="margin-bottom: 40px;"></div>
+  <div id="chart_Tampon" style="margin-bottom: 40px;"></div>
+</section>
+
+</main>
   <script src="script.js"></script>
 </body>
 </html>
