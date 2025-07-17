@@ -2,27 +2,56 @@ const webAppUrl = 'https://script.google.com/macros/s/AKfycbwp8hlOeo_pmX_ijkNS7B
 
 const zones = [
   "Voie Creuse",
-  "Bibliotheque",
+  "Bibliothèque",
   "Reading Room 1",
   "Reading Room 3",
   "Compactus",
   "B26",
-  "Batiment E",
+  "Bâtiment E",
   "Tampon"
 ];
 
+// Affichage des sections par onglet
 function showTab(tabId) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
-  if (tabId === 'visualisation') drawAllCharts();
+  if (tabId === 'visualisation') {
+    google.charts.setOnLoadCallback(drawAllCharts);  // Triggere le rendu une fois Charts chargé
+  }
 }
 
+// Chargement Google Charts
 google.charts.load('current', { packages: ['corechart'] });
 
+// Dessiner tous les graphiques
 function drawAllCharts() {
   zones.forEach(zone => drawChart(zone));
 }
 
+// Dessiner un camembert pour une zone
+function drawChart(zone) {
+  fetch(`${webAppUrl}?etat=1&zone=${encodeURIComponent(zone)}`)
+    .then(res => res.json())
+    .then(json => {
+      const data = google.visualization.arrayToDataTable(json);
+      const options = {
+        title: "Stock actuel – " + zone,
+        pieHole: 0.4,
+        height: 300
+      };
+      const zoneId = "chart_" + zone.replace(/ /g, "_").replace(/[^\w]/g, "_");
+      const chartDiv = document.getElementById(zoneId);
+      if (chartDiv) {
+        const chart = new google.visualization.PieChart(chartDiv);
+        chart.draw(data, options);
+      }
+    })
+    .catch(err => {
+      console.error("Erreur fetch pour la zone", zone, err);
+    });
+}
+
+// Envoi d’un mouvement de stock
 function envoyerMouvement(e, feuille) {
   e.preventDefault();
   const form = e.target;
@@ -37,35 +66,11 @@ function envoyerMouvement(e, feuille) {
   fetch(webAppUrl, {
     method: "POST",
     body: params
-  }).then(res => res.text())
+  })
+    .then(res => res.text())
     .then(() => {
       alert("✅ Donnée enregistrée !");
       form.reset();
-      if (document.getElementById("visualisation").classList.contains("active")) {
-        drawAllCharts();
-      }
-    });
-}
-
-function toChartId(zone) {
-  return "chart_" + zone.replaceAll(" ", "_").replaceAll("é", "e").replaceAll("è", "e").replaceAll("ê", "e");
-}
-
-function drawChart(zone) {
-  fetch(webAppUrl + "?etat=1&zone=" + encodeURIComponent(zone))
-    .then(res => res.json())
-    .then(json => {
-      if (json.length <= 1) return; // rien à afficher
-      const data = google.visualization.arrayToDataTable(json);
-      const options = {
-        title: "Stock – " + zone,
-        pieHole: 0.4,
-        height: 300
-      };
-      const chartDiv = document.getElementById(toChartId(zone));
-      if (chartDiv) {
-        const chart = new google.visualization.PieChart(chartDiv);
-        chart.draw(data, options);
-      }
-    });
+    })
+    .catch(err => alert("❌ Erreur : " + err));
 }
