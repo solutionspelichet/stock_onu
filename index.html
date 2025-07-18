@@ -1,150 +1,101 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Suivi des Stocks ONU</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#d95c14">
-  <link rel="stylesheet" href="style.css">
-  <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-</head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Stock Matériel ONU</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF9800"/> </head>
 <body>
-  <header>
-    <h1>Suivi des Stocks ONU</h1>
-  </header>
-  <nav>
-    <ul class="tabs">
-      <li class="tab" onclick="showTab('voiecreuse')">Voie Creuse</li>
-      <li class="tab" onclick="showTab('bibliotheque')">Bibliothèque</li>
-      <li class="tab" onclick="showTab('repartition')">Répartition</li>
-      <li class="tab" onclick="showTab('restes')">Restes</li>
-      <li class="tab" onclick="showTab('visualisation')">Visualisation</li>
-    </ul>
-  </nav>
+    <header>
+        <h1>Gestion Stock Matériel ONU</h1>
+    </header>
 
-  <main>
-    <section id="voiecreuse" class="tab-content active">
-      <h2>Saisie - Voie Creuse</h2>
-      <form onsubmit="envoyerMouvement(event, 'Stock Voie Creuse')">
-        <input type="date" name="date" required>
-        <select name="type" required>
-          <option value="">Type</option>
-          <option value="Entrée">Entrée</option>
-          <option value="Sortie">Sortie</option>
-        </select>
-        <select name="materiel" required>
-          <option value="Palettes 80x120">Palettes 80x120</option>
-          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
-          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
-          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
-          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
-          <option value="rouleau scotch">rouleau scotch</option>
-          <option value="papier blanc">papier blanc</option>
-        </select>
-        <input type="number" name="quantite" placeholder="Quantité" required>
-        <button type="submit">Envoyer</button>
-      </form>
-    </section>
+    <main>
+        <section id="enregistrement-mouvement">
+            <h2>Enregistrer un Mouvement</h2>
+            <form id="mouvementForm">
+                <div class="form-group">
+                    <label for="feuilleCible">Sélectionner la Feuille de Journalisation (Source du mouvement si Transfert):</label>
+                    <select id="feuilleCible" name="feuille" required>
+                        <option value="Stock Voie Creuse">Stock Voie Creuse</option>
+                        <option value="Stock Bibliothèque">Stock Bibliothèque</option>
+                        <option value="Répartition Journalière">Répartition Journalière (Pour les entrées de transfert)</option>
+                        <option value="Restes Zones">Restes Zones (Journal d'inventaire uniquement)</option>
+                    </select>
+                </div>
 
-    <section id="bibliotheque" class="tab-content">
-      <h2>Saisie - Bibliothèque</h2>
-      <form onsubmit="envoyerMouvement(event, 'Stock Bibliothèque')">
-        <input type="date" name="date" required>
-        <select name="type" required>
-          <option value="">Type</option>
-          <option value="Entrée">Entrée</option>
-          <option value="Sortie">Sortie</option>
-        </select>
-        <select name="materiel" required>
-          <option value="Palettes 80x120">Palettes 80x120</option>
-          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
-          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
-          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
-          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
-          <option value="rouleau scotch">rouleau scotch</option>
-          <option value="papier blanc">papier blanc</option>
-        </select>
-        <input type="number" name="quantite" placeholder="Quantité" required>
-        <button type="submit">Envoyer</button>
-      </form>
-    </section>
+                <div class="form-group">
+                    <label for="dateMouvement">Date:</label>
+                    <input type="date" id="dateMouvement" name="date" required>
+                </div>
 
-    <section id="repartition" class="tab-content">
-      <h2>Saisie - Répartition</h2>
-      <form onsubmit="envoyerMouvement(event, 'Répartition Journalière')">
-        <input type="date" name="date" required>
-        <select name="zone" required>
-          <option value="">Zone</option>
-          <option value="Etage 1">Etage 1</option>
-          <option value="Etage 2">Etage 2</option>
-          <option value="Etage 10">Etage 10</option>
-          <option value="Reading Room 1">Reading Room 1</option>
-          <option value="Reading Room 3">Reading Room 3</option>
-          <option value="Compactus">Compactus</option>
-          <option value="B26">B26</option>
-          <option value="Bâtiment E">Bâtiment E</option>
-          <option value="Tampon">Tampon</option>
-        </select>
-        <select name="materiel" required>
-          <option value="Palettes 80x120">Palettes 80x120</option>
-          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
-          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
-          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
-          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
-          <option value="rouleau scotch">rouleau scotch</option>
-          <option value="papier blanc">papier blanc</option>
-        </select>
-        <input type="number" name="quantite" placeholder="Quantité" required>
-        <button type="submit">Envoyer</button>
-      </form>
-    </section>
+                <div class="form-group">
+                    <label for="typeMouvement">Type de mouvement:</label>
+                    <select id="typeMouvement" name="type" required>
+                        <option value="Entrée">Entrée (vers la 'Zone' spécifiée)</option>
+                        <option value="Sortie">Sortie (de la 'Zone' spécifiée)</option>
+                        <option value="Transfert">Transfert (De la 'Feuille Source' vers la 'Zone' spécifiée)</option>
+                    </select>
+                </div>
 
-    <section id="restes" class="tab-content">
-      <h2>Saisie - Restes</h2>
-      <form onsubmit="envoyerMouvement(event, 'Restes Zones')">
-        <input type="date" name="date" required>
-        <select name="zone" required>
-          <option value="Etage 1">Etage 1</option>
-          <option value="Etage 2">Etage 2</option>
-          <option value="Etage 10">Etage 10</option>
-          <option value="Reading Room 1">Reading Room 1</option>
-          <option value="Reading Room 3">Reading Room 3</option>
-          <option value="Compactus">Compactus</option>
-          <option value="B26">B26</option>
-          <option value="Bâtiment E">Bâtiment E</option>
-          <option value="Tampon">Tampon</option>
-        </select>
-        <select name="materiel">
-          <option value="Palettes 80x120">Palettes 80x120</option>
-          <option value="Cadres-palette CFF">Cadres-palette CFF</option>
-          <option value="Couvercles cadres-palette">Couvercles cadres-palette</option>
-          <option value="Cartons 60x37x38">Cartons 60x37x38</option>
-          <option value="Intercalaires 120x80">Intercalaires 120x80</option>
-          <option value="rouleau scotch">rouleau scotch</option>
-          <option value="papier blanc">papier blanc</option>
-        </select>
-        <input type="number" name="quantite" placeholder="Quantité" required>
-        <button type="submit">Envoyer</button>
-      </form>
-    </section>
+                <div id="zoneInputFieldGroup" class="form-group">
+                    <label for="zoneMouvement">Zone impactée par le mouvement (Destination ou Origine):</label>
+                    <input list="zonesList" id="zoneMouvement" name="zone" placeholder="Sélectionner ou Saisir une Zone" required>
+                    <datalist id="zonesList"></datalist>
+                </div>
 
-   
-  
-<section id="visualisation" class="tab-content" style="display:none;">
-  <h2>Visualisation des Stocks par Zone</h2>
-  <div id="chart_Voie_Creuse" style="margin-bottom: 40px;"></div>
-  <div id="chart_Bibliothèque" style="margin-bottom: 40px;"></div>
-  <div id="chart_Reading_Room_1" style="margin-bottom: 40px;"></div>
-  <div id="chart_Reading_Room_3" style="margin-bottom: 40px;"></div>
-  <div id="chart_Compactus" style="margin-bottom: 40px;"></div>
-  <div id="chart_B26" style="margin-bottom: 40px;"></div>
-  <div id="chart_Bâtiment_E" style="margin-bottom: 40px;"></div>
-  <div id="chart_Tampon" style="margin-bottom: 40px;"></div>
-</section>
+                <div id="materiaux-container">
+                    <h3>Articles du Mouvement</h3>
+                    <div class="materiau-item form-group" data-id="1">
+                        <label for="materiel_1">Matériel:</label>
+                        <input list="materielsList" id="materiel_1" class="materiel-input" name="materiel_1" placeholder="Sélectionner ou Saisir un Matériel" required>
+                        <label for="quantite_1">Quantité:</label>
+                        <input type="number" id="quantite_1" class="quantite-input" name="quantite_1" required min="1">
+                        <button type="button" class="remove-materiau-btn" style="display:none;">Supprimer</button>
+                    </div>
+                </div>
+                <button type="button" id="addMateriauBtn">Ajouter un Matériel</button>
+                <datalist id="materielsList"></datalist>
 
-</main>
-  <script src="script.js"></script>
+                <button type="submit">Enregistrer Mouvement</button>
+            </form>
+            <p id="mouvementMessage" class="message"></p>
+        </section>
+
+        <section id="visualisation-stock">
+            <h2>Visualisation des Stocks par Zone</h2>
+            <div class="form-group">
+                <label for="selectZoneVisualisation">Sélectionner une Zone:</label>
+                <select id="selectZoneVisualisation">
+                    </select>
+                <button id="chargerStockBtn">Charger Stock</button>
+            </div>
+            <div id="stockDisplayArea">
+                <p>Sélectionnez une zone et cliquez sur "Charger Stock" pour visualiser.</p>
+            </div>
+            <p id="visualisationMessage" class="message"></p>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Gestion Stock</p>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker enregistré avec succès:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Échec de l\'enregistrement du Service Worker:', error);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
