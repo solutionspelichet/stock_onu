@@ -1,5 +1,5 @@
 // Remplacez 'YOUR_WEB_APP_URL_HERE' par l'URL de déploiement de votre application web Google Apps Script
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwp8hlOeo_pmX_ijkNS7ByFVRvzCOJqKURs7q6K5g6PouSCfq3dLV52iwAafP2J5-fWAg/exec';
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz_Sm9L_5P1dj5J3YKe7auymUEhZIaVzZoz--xXEYIHAcln9o3rsK6Uxxfz-a6ckAZfyg/exec';
 
 
 document.addEventListener('DOMContentLoaded', () => {
