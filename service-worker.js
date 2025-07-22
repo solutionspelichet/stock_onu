@@ -1,13 +1,14 @@
 const CACHE_NAME = 'stock-app-cache-v1';
 const urlsToCache = [
-  '/stock_onu/', // Important: La portée du SW. Doit correspondre à l'URL de base de votre PWA
-  '/stock_onu/index.html',
-  '/stock_onu/script.js',
-  '/stock_onu/style.css',
-  '/stock_onu/manifest.json',
-  '/stock_onu/icons/icon-192x192.png',
-  '/stock_onu/icons/icon-512x512.png',
-  '/stock_onu/favicon.ico' // Si vous avez un favicon
+  '/',
+  '/index.html',
+  '/script.js',
+  '/style.css',
+  '/manifest.json',
+  '/icons/icon-192x192.png',
+  '/icons/icon-512x512.png',
+  // Ajoutez le favicon si vous l'avez lié dans index.html ou s'il est attendu par défaut
+  // '/favicon.ico'
 ];
 
 self.addEventListener('install', event => {
