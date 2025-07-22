@@ -1,6 +1,5 @@
 // Remplacez 'YOUR_WEB_APP_URL_HERE' par l'URL de déploiement de votre application web Google Apps Script
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbypCKnXlKVqXjxJTUnkDu-aiobRbkrJpBwGRt98gsF9ZkFaR2E6Sy4JDBv5GHee30yrfg/exec';
-
+const APP_SCRIPT_URL = 'https://corsproxy.io/?https://script.google.com/macros/s/AKfycbypCKnXlKVqXjxJTUnkDu-aiobRbkrJpBwGRt98gsF9ZkFaR2E6Sy4JDBv5GHee30yrfg/exec';
 
 document.addEventListener('DOMContentLoaded', () => {
     const mouvementForm = document.getElementById('mouvementForm');
