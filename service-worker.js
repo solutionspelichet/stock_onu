@@ -1,14 +1,14 @@
 const CACHE_NAME = 'stock-app-cache-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/script.js',
-  '/style.css',
-  '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png',
-  // Ajoutez le favicon si vous l'avez lié dans index.html ou s'il est attendu par défaut
-  // '/favicon.ico'
+  '/stock_onu/', // La racine de votre PWA (qui est le dossier du dépôt)
+  '/stock_onu/index.html',
+  '/stock_onu/script.js',
+  '/stock_onu/style.css',
+  '/stock_onu/manifest.json',
+  '/stock_onu/icons/icon-192x192.png',
+  '/stock_onu/icons/icon-512x512.png'
+  // Si vous avez un favicon.ico et qu'il est à la racine de votre dépôt 'stock_onu', ajoutez-le :
+  // '/stock_onu/favicon.ico'
 ];
 
 self.addEventListener('install', event => {
@@ -18,6 +18,11 @@ self.addEventListener('install', event => {
         console.log('Opened cache');
         return cache.addAll(urlsToCache);
       })
+      .catch(error => {
+        console.error('Failed to add URLs to cache:', error); // Log d'erreur plus détaillé
+        // Vous pouvez choisir de rejeter le promise ici pour signaler l'échec de l'installation
+        // throw error; 
+      })
   );
 });
 
@@ -25,11 +30,30 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Cache hit - return response
         if (response) {
           return response;
         }
-        return fetch(event.request);
+        // Cloner la requête pour pouvoir la réutiliser après la réponse
+        const fetchRequest = event.request.clone();
+
+        return fetch(fetchRequest).then(
+          response => {
+            // Vérifier si nous avons reçu une réponse valide
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // Cloner la réponse car elle ne peut être consommée qu'une seule fois
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          }
+        );
       })
   );
 });
