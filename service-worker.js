@@ -1,14 +1,8 @@
 const CACHE_NAME = 'stock-app-cache-v1';
 const urlsToCache = [
-  '/stock_onu/', // La racine de votre PWA (qui est le dossier du dépôt)
-  '/stock_onu/index.html',
-  '/stock_onu/script.js',
-  '/stock_onu/style.css',
-  '/stock_onu/manifest.json',
-  '/stock_onu/icons/icon-192x192.png',
-  '/stock_onu/icons/icon-512x512.png'
-  // Si vous avez un favicon.ico et qu'il est à la racine de votre dépôt 'stock_onu', ajoutez-le :
-  // '/stock_onu/favicon.ico'
+  const urlsToCache = [
+  '/stock_onu/index.html' // Seulement l'index.html
+];
 ];
 
 self.addEventListener('install', event => {
