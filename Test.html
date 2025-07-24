@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostic Complet - API Google Apps Script</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 4px; }
+        .success { background-color: #e6ffe6; color: #4CAF50; border: 1px solid #4CAF50; }
+        .error { background-color: #ffe6e6; color: #f44336; border: 1px solid #f44336; }
+        .info { background-color: #e7f3fe; color: #2196F3; border: 1px solid #2196F3; }
+        .warning { background-color: #fff3e0; color: #ff9800; border: 1px solid #ff9800; }
+        button { background-color: #FF9800; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background-color: #fb8c00; }
+        input { padding: 8px; margin: 5px; width: 400px; border: 1px solid #ddd; border-radius: 4px; }
+        textarea { width: 100%; height: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .btn-secondary { background-color: #2196F3; }
+        .btn-secondary:hover { background-color: #1976D2; }
+        .btn-success { background-color: #4CAF50; }
+        .btn-success:hover { background-color: #45a049; }
+        h2 { color: #333; border-bottom: 2px solid #FF9800; padding-bottom: 10px; }
+        h3 { color: #555; }
+        pre { background-color: #f8f8f8; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Diagnostic Complet - API Google Apps Script</h1>
+        
+        <div class="test-section">
+            <h2>Configuration</h2>
+            <label>URL de l'API :</label><br>
+            <input type="url" id="apiUrl" placeholder="https://script.google.com/macros/s/VOTRE_ID/exec" value="">
+            <button onclick="setDefaultUrl()">URL actuelle</button>
+            <button onclick="testNewDeployment()">Tester nouveau déploiement</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Tests de Connectivité</h2>
+            <button onclick="testBasicConnectivity()">Test Basic</button>
+            <button onclick="testWithCors()">Test CORS</button>
+            <button onclick="testZones()">Test Zones</button>
+            <button onclick="testMateriels()">Test Matériels</button>
+            <button onclick="clearResults()">Effacer</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Test d'Enregistrement</h2>
+            <input type="text" id="testMateriel" placeholder="Matériel de test" value="Test-Material">
+            <input type="number" id="testQuantite" placeholder="Quantité" value="1" min="1">
+            <button onclick="testSingleMovement()" class="btn-success">Test Mouvement Simple</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Informations Système</h2>
+            <button onclick="showSystemInfo()" class="btn-secondary">Afficher Info Système</button>
+            <button onclick="testFromDifferentOrigin()" class="btn-secondary">Test Origine Différente</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Générateur d'URL de Test</h2>
+            <textarea id="urlGenerator" placeholder="Les URLs de test apparaîtront ici..."></textarea>
+            <button onclick="generateTestUrls()">Générer URLs de Test</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const DEFAULT_URL = 'https://script.google.com/macros/s/AKfycbzQrltt-idECi0_Z7zgocc4gIddmcU9TbgSm-UeeM5PPpHwSyiTCKbVxOzrmH1jH1hp/exec';
+        
+        function setDefaultUrl() {
+            document.getElementById('apiUrl').value = DEFAULT_URL;
+            addResult('URL par défaut définie', 'info');
+        }
+
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function showSystemInfo() {
+            const info = {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                currentOrigin: window.location.origin,
+                currentURL: window.location.href,
+                timestamp: new Date().toISOString()
+            };
+            
+            addResult('Informations système:', 'info');
+            Object.entries(info).forEach(([key, value]) => {
+                addResult(`${key}: ${value}`, 'info');
+            });
+        }
+
+        async function testBasicConnectivity() {
+            const url = document.getElementById('apiUrl').value;
+            if (!url) {
+                addResult('❌ Veuillez saisir l\'URL de l\'API', 'error');
+                return;
+            }
+
+            addResult('🔄 Test de connectivité de base...', 'info');
+            
+            try {
+                const response = await fetch(`${url}?test=1`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+                
+                addResult(`📡 Statut HTTP: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                if (response.ok) {
+                    const data = await response.text();
+                    addResult(`✅ Réponse reçue: ${data.substring(0, 100)}...`, 'success');
+                    
+                    try {
+                        const jsonData = JSON.parse(data);
+                        addResult(`📋 JSON valide: ${jsonData.message}`, 'success');
+                    } catch (e) {
+                        addResult(`⚠️ Réponse non-JSON: ${data}`, 'warning');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    addResult(`❌ Erreur: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`💥 Erreur de connexion: ${error.message}`, 'error');
+                
+                if (error.message.includes('CORS')) {
+                    addResult('🚨 Problème CORS détecté!', 'error');
+                    addResult('💡 Solutions possibles:', 'info');
+                    addResult('1. Redéployez votre Google Apps Script', 'info');
+                    addResult('2. Vérifiez "Qui peut accéder" = "Tout le monde"', 'info');
+                    addResult('3. Essayez un nouveau déploiement', 'info');
+                }
+                
+                if (error.message.includes('net::ERR_FAILED')) {
+                    addResult('🌐 Problème de réseau ou URL invalide', 'error');
+                }
+            }
+        }
+
+        async function testWithCors() {
+            const url = document.getElementById('apiUrl').value;
+            if (!url) {
+                addResult('❌ Veuillez saisir l\'URL de l\'API', 'error');
+                return;
+            }
+
+            addResult('🔄 Test avec différentes options CORS...', 'info');
+            
+            const corsOptions = [
+                { mode: 'cors', cache: 'no-cache' },
+                { mode: 'no-cors', cache: 'no-cache' },
+                { mode: 'cors', cache: 'default' },
+                {}
+            ];
+
+            for (let i = 0; i < corsOptions.length; i++) {
+                try {
+                    addResult(`🧪 Test option ${i + 1}...`, 'info');
+                    const response = await fetch(`${url}?test=1&cors=${i}`, corsOptions[i]);
+                    addResult(`✅ Option ${i + 1} réussite: ${response.status}`, 'success');
+                    
+                    if (response.status === 200) {
+                        addResult(`🎉 Option ${i + 1} est la bonne!`, 'success');
+                        break;
+                    }
+                } catch (error) {
+                    addResult(`❌ Option ${i + 1} échec: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        async function testZones() {
+            const url = document.getElementById('apiUrl').value;
+            if (!url) {
+                addResult('❌ Veuillez saisir l\'URL de l\'API', 'error');
+                return;
+            }
+
+            addResult('🔄 Test de récupération des zones...', 'info');
+            
+            try {
+                const response = await fetch(`${url}?get=zones`);
+                
+                if (response.ok) {
+                    const zones = await response.json();
+                    addResult(`✅ ${zones.length} zones récupérées`, 'success');
+                    addResult(`📋 Zones: ${zones.slice(0, 5).join(', ')}${zones.length > 5 ? '...' : ''}`, 'info');
+                } else {
+                    addResult(`❌ Erreur HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function testMateriels() {
+            const url = document.getElementById('apiUrl').value;
+            if (!url) {
+                addResult('❌ Veuillez saisir l\'URL de l\'API', 'error');
+                return;
+            }
+
+            addResult('🔄 Test de récupération des matériels...', 'info');
+            
+            try {
+                const response = await fetch(`${url}?get=materiels`);
+                
+                if (response.ok) {
+                    const materiels = await response.json();
+                    addResult(`✅ ${materiels.length} matériels récupérés`, 'success');
+                    addResult(`📋 Matériels: ${materiels.slice(0, 5).join(', ')}${materiels.length > 5 ? '...' : ''}`, 'info');
+                } else {
+                    addResult(`❌ Erreur HTTP ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        async function testSingleMovement() {
+            const url = document.getElementById('apiUrl').value;
+            const materiel = document.getElementById('testMateriel').value;
+            const quantite = document.getElementById('testQuantite').value;
+            
+            if (!url || !materiel || !quantite) {
+                addResult('❌ Veuillez remplir tous les champs', 'error');
+                return;
+            }
+
+            addResult(`🔄 Test d'enregistrement: ${materiel} (${quantite})...`, 'info');
+            
+            const params = new URLSearchParams({
+                action: 'addSingleMovement',
+                feuilleCible: 'Stock Voie Creuse',
+                date: new Date().toISOString().split('T')[0],
+                type: 'Entrée',
+                zone: 'Voie Creuse',
+                materiel: materiel,
+                quantite: quantite
+            });
+
+            const testUrl = `${url}?${params.toString()}`;
+            addResult(`🔗 URL de test: ${testUrl.substring(0, 100)}...`, 'info');
+            
+            try {
+                const response = await fetch(testUrl);
+                
+                if (response.ok) {
+                    const result = await response.text();
+                    addResult(`✅ Mouvement enregistré: ${result}`, 'success');
+                } else {
+                    const errorText = await response.text();
+                    addResult(`❌ Erreur HTTP ${response.status}: ${errorText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ Erreur: ${error.message}`, 'error');
+            }
+        }
+
+        function testNewDeployment() {
+            addResult('📝 Instructions pour nouveau déploiement:', 'info');
+            addResult('1. Ouvrez Google Apps Script', 'info');
+            addResult('2. Cliquez "Déployer" → "Nouveau déploiement"', 'info');
+            addResult('3. Type: "Application Web"', 'info');
+            addResult('4. Exécuter en tant que: "Moi"', 'info');
+            addResult('5. Qui peut accéder: "Tout le monde"', 'info');
+            addResult('6. Copiez la nouvelle URL et testez-la ici', 'info');
+        }
+
+        function testFromDifferentOrigin() {
+            const url = document.getElementById('apiUrl').value;
+            if (!url) {
+                addResult('❌ Veuillez saisir l\'URL de l\'API', 'error');
+                return;
+            }
+            
+            const newWindow = window.open(`${url}?test=1`, '_blank');
+            addResult('🪟 Ouverture dans un nouvel onglet pour test d\'origine différente', 'info');
+            addResult('Si cela fonctionne dans le nouvel onglet, le problème est lié à CORS', 'warning');
+        }
+
+        function generateTestUrls() {
+            const url = document.getElementById('apiUrl').value;
+            if (!url) {
+                addResult('❌ Veuillez saisir l\'URL de l\'API', 'error');
+                return;
+            }
+
+            const urls = [
+                `${url}?test=1`,
+                `${url}?get=zones`,
+                `${url}?get=materiels`,
+                `${url}?etat=1&zone=Voie%20Creuse`,
+                `${url}?action=addSingleMovement&feuilleCible=Stock%20Voie%20Creuse&type=Entrée&zone=Voie%20Creuse&materiel=Test&quantite=1&date=${new Date().toISOString().split('T')[0]}`
+            ];
+
+            document.getElementById('urlGenerator').value = urls.join('\n\n');
+            addResult('📋 URLs de test générées - testez-les dans votre navigateur', 'success');
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            setDefaultUrl();
+            addResult('🚀 Page de diagnostic chargée. Commencez par "Test Basic"', 'info');
+        });
+    </script>
+</body>
+</html>
