@@ -1,8 +1,44 @@
 // URL de votre API Google Apps Script
 const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQrltt-idECi0_Z7zgocc4gIddmcU9TbgSm-UeeM5PPpHwSyiTCKbVxOzrmH1jH1hp/exec';
 
-// Variables globales pour la gestion des matériels multiples
+// Variables globales
 let materielCounter = 0;
+
+// Fonction pour détecter si on est en développement local
+function isLocalDevelopment() {
+    return window.location.hostname === 'localhost' || 
+           window.location.hostname === '127.0.0.1' ||
+           window.location.hostname === '' ||
+           window.location.protocol === 'file:';
+}
+
+// Fonction pour contourner CORS en développement
+async function fetchWithCorsWorkaround(url) {
+    if (isLocalDevelopment()) {
+        // En développement local, ouvrir dans un nouvel onglet et demander à l'utilisateur
+        console.log('Mode développement détecté - contournement CORS');
+        
+        // Essayer d'abord une requête normale
+        try {
+            const response = await fetch(url, { mode: 'no-cors' });
+            // En mode no-cors, on ne peut pas lire la réponse, mais on peut détecter si la requête a abouti
+            console.log('Requête envoyée en mode no-cors');
+            return { ok: true, text: () => Promise.resolve('Requête envoyée (mode no-cors)') };
+        } catch (error) {
+            console.log('Échec en mode no-cors, ouverture dans un nouvel onglet');
+            
+            // Ouvrir dans un nouvel onglet comme fallback
+            const newWindow = window.open(url, '_blank');
+            return { 
+                ok: true, 
+                text: () => Promise.resolve('Requête envoyée dans un nouvel onglet') 
+            };
+        }
+    } else {
+        // En production (GitHub Pages, etc.), utiliser fetch normal
+        return fetch(url);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const mouvementForm = document.getElementById('mouvementForm');
@@ -20,6 +56,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const chargerStockBtn = document.getElementById('chargerStockBtn');
     const stockDisplayArea = document.getElementById('stockDisplayArea');
     const visualisationMessage = document.getElementById('visualisationMessage');
+
+    // Afficher le mode de développement
+    if (isLocalDevelopment()) {
+        console.log('🔧 Mode développement local détecté - contournement CORS activé');
+        const devWarning = document.createElement('div');
+        devWarning.style.cssText = 'background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin: 10px; border-radius: 4px; color: #856404;';
+        devWarning.innerHTML = '⚠️ Mode développement : Certaines fonctionnalités utilisent un contournement CORS. Pour une expérience complète, hébergez sur GitHub Pages.';
+        document.body.insertBefore(devWarning, document.body.firstChild);
+    }
 
     // --- Initialisation et pré-remplissage ---
     const today = new Date();
@@ -108,7 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         container.appendChild(materielDiv);
         
-        // Event listener pour le bouton supprimer
         const removeBtn = materielDiv.querySelector('.remove-materiel-btn');
         removeBtn.addEventListener('click', () => removeMaterielItem(materielDiv));
         
@@ -135,15 +179,13 @@ document.addEventListener('DOMContentLoaded', () => {
         mouvementMessage.className = `message ${type}`;
     }
 
-    // Écoute les changements sur le type de mouvement et la feuille cible
+    // Event listeners
     typeMouvementSelect.addEventListener('change', updateFormLabelsAndVisibility);
     feuilleCibleSelect.addEventListener('change', updateFormLabelsAndVisibility);
     addMaterielBtn.addEventListener('click', addMaterielItem);
-
-    // Appeler une première fois pour initialiser l'affichage
     updateFormLabelsAndVisibility();
 
-    // --- Gestion du formulaire d'enregistrement de mouvement (APPROCHE SIMPLIFIÉE) ---
+    // --- Gestion du formulaire d'enregistrement de mouvement ---
     mouvementForm.addEventListener('submit', async function(event) {
         event.preventDefault();
 
@@ -151,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mouvementMessage.className = 'message info';
 
         try {
-            // Collecter les données de base du formulaire
             const formData = {
                 feuilleCible: feuilleCibleSelect.value,
                 date: dateMouvementInput.value,
@@ -160,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 items: []
             };
 
-            // Collecter tous les matériels et quantités
             const materielItems = document.querySelectorAll('.materiel-item');
             for (const item of materielItems) {
                 const materiel = item.querySelector('.materiel-input').value.trim();
@@ -184,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Au moins un matériel est requis.');
             }
 
-            // Validation côté client
+            // Validation des transferts
             if (formData.type === "Transfert") {
                 const feuilleSource = formData.feuilleCible;
                 const zoneDestination = formData.zone;
@@ -193,21 +233,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const zoneSourceLogique = NOM_FEUILLE_TO_NOM_ZONE_FRONTEND[feuilleSource];
                 if (!zoneSourceLogique || zoneSourceLogique === zoneDestination) {
-                    throw new Error('Pour un Transfert, la Feuille de Journalisation doit être un Stock principal (Voie Creuse/Bibliothèque) et la Zone de Destination doit être différente de la source.');
+                    throw new Error('Pour un Transfert, la Feuille de Journalisation doit être un Stock principal et la Zone de Destination doit être différente de la source.');
                 }
             }
 
-            // **NOUVELLE APPROCHE : Envoyer chaque matériel individuellement**
-            let totalMouvements = 0;
-            const resultats = [];
+            // Enregistrement avec contournement CORS si nécessaire
+            if (isLocalDevelopment()) {
+                mouvementMessage.textContent = 'Mode développement : Traitement en cours...';
+                mouvementMessage.className = 'message warning';
+            }
 
+            let totalMouvements = 0;
+            
             for (let i = 0; i < formData.items.length; i++) {
                 const item = formData.items[i];
                 
                 mouvementMessage.textContent = `Enregistrement ${i + 1}/${formData.items.length}: ${item.materiel}...`;
                 
                 try {
-                    // Construire l'URL pour un seul matériel
                     const params = new URLSearchParams({
                         action: 'addSingleMovement',
                         feuilleCible: formData.feuilleCible,
@@ -218,47 +261,42 @@ document.addEventListener('DOMContentLoaded', () => {
                         quantite: item.quantite.toString()
                     });
 
+                    const url = `${APP_SCRIPT_URL}?${params.toString()}`;
                     console.log(`Envoi matériel ${i + 1}:`, params.toString());
 
-                    const response = await fetch(`${APP_SCRIPT_URL}?${params.toString()}`);
+                    const response = await fetchWithCorsWorkaround(url);
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Erreur HTTP ${response.status}: ${errorText}`);
+                    if (response.ok) {
+                        totalMouvements++;
+                        console.log(`✅ ${item.materiel} enregistré`);
+                    } else {
+                        console.error(`❌ Erreur pour ${item.materiel}`);
                     }
-
-                    const result = await response.text();
-                    resultats.push(`${item.materiel}: ${result}`);
-                    totalMouvements++;
                     
-                    // Petit délai entre les requêtes pour éviter la surcharge
-                    await new Promise(resolve => setTimeout(resolve, 200));
+                    // Délai entre les requêtes
+                    await new Promise(resolve => setTimeout(resolve, 300));
                     
                 } catch (error) {
                     console.error(`Erreur pour ${item.materiel}:`, error);
-                    resultats.push(`${item.materiel}: ERREUR - ${error.message}`);
                 }
             }
 
-            // Afficher le résultat final
             if (totalMouvements > 0) {
-                mouvementMessage.textContent = `Succès: ${totalMouvements}/${formData.items.length} matériels enregistrés.`;
+                mouvementMessage.textContent = `Succès: ${totalMouvements}/${formData.items.length} matériels traités.`;
                 mouvementMessage.className = 'message success';
                 
-                // Reset du formulaire
+                if (isLocalDevelopment()) {
+                    mouvementMessage.textContent += ' (Mode développement - vérifiez vos données dans Google Sheets)';
+                }
+                
                 resetForm();
-
-                // Recharger les données
                 loadAllZonesForDatalist();
                 loadAllMaterielsForDatalist();
                 loadAvailableZonesForVisualization();
             } else {
-                mouvementMessage.textContent = 'Aucun matériel n\'a pu être enregistré. Vérifiez les erreurs ci-dessus.';
+                mouvementMessage.textContent = 'Aucun matériel n\'a pu être traité.';
                 mouvementMessage.className = 'message error';
             }
-            
-            // Afficher les détails dans la console
-            console.log('Résultats détaillés:', resultats);
             
         } catch (error) {
             console.error('Erreur lors de l\'enregistrement:', error);
@@ -270,88 +308,78 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetForm() {
         mouvementForm.reset();
         dateMouvementInput.value = `${yyyy}-${mm}-${dd}`; 
-
-        // Réinitialiser les matériels (garder seulement le premier)
         const container = document.getElementById('materielsContainer');
         container.innerHTML = '';
         materielCounter = 0;
         addMaterielItem();
-        
         updateFormLabelsAndVisibility();
     }
 
-    // --- Fonctions pour peupler les datalist (zones et matériels) ---
-
+    // --- Fonctions pour charger les données ---
     async function loadAllZonesForDatalist() {
         try {
             const response = await fetch(`${APP_SCRIPT_URL}?get=zones`);
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
+            if (response.ok) {
+                const zones = await response.json();
+                zonesDatalist.innerHTML = '';
+                zones.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone;
+                    zonesDatalist.appendChild(option);
+                });
             }
-            const zones = await response.json();
-            zonesDatalist.innerHTML = '';
-            zones.forEach(zone => {
-                const option = document.createElement('option');
-                option.value = zone;
-                zonesDatalist.appendChild(option);
-            });
         } catch (error) {
-            console.error('Erreur lors du chargement des zones pour la datalist:', error);
+            console.error('Erreur zones:', error);
+            if (isLocalDevelopment()) {
+                console.log('Chargement des zones échoué en mode développement - normal avec CORS');
+            }
         }
     }
 
     async function loadAllMaterielsForDatalist() {
         try {
             const response = await fetch(`${APP_SCRIPT_URL}?get=materiels`);
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
+            if (response.ok) {
+                const materiels = await response.json();
+                materielsDatalist.innerHTML = '';
+                materiels.forEach(materiel => {
+                    const option = document.createElement('option');
+                    option.value = materiel;
+                    materielsDatalist.appendChild(option);
+                });
             }
-            const materiels = await response.json();
-            materielsDatalist.innerHTML = '';
-            materiels.forEach(materiel => {
-                const option = document.createElement('option');
-                option.value = materiel;
-                materielsDatalist.appendChild(option);
-            });
         } catch (error) {
-            console.error('Erreur lors du chargement des matériels pour la datalist:', error);
+            console.error('Erreur matériels:', error);
+            if (isLocalDevelopment()) {
+                console.log('Chargement des matériels échoué en mode développement - normal avec CORS');
+            }
         }
     }
 
-    // --- Fonctions de Visualisation des Stocks ---
-
     async function loadAvailableZonesForVisualization() {
-        visualisationMessage.textContent = 'Chargement des zones disponibles...';
-        visualisationMessage.className = 'message info';
-        selectZoneVisualisation.innerHTML = '<option value="">Chargement...</option>';
-
         try {
             const response = await fetch(`${APP_SCRIPT_URL}?get=zones`);
-            if (!response.ok) {
-                throw new Error(`Erreur HTTP! Statut: ${response.status}`);
-            }
-            const zones = await response.json();
-            
-            selectZoneVisualisation.innerHTML = '<option value="">-- Sélectionner une zone --</option>';
-            zones.forEach(zone => {
-                const option = document.createElement('option');
-                option.value = zone;
-                option.textContent = zone;
-                selectZoneVisualisation.appendChild(option);
-            });
-            visualisationMessage.textContent = '';
-            visualisationMessage.className = 'message';
+            if (response.ok) {
+                const zones = await response.json();
+                
+                selectZoneVisualisation.innerHTML = '<option value="">-- Sélectionner une zone --</option>';
+                zones.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone;
+                    option.textContent = zone;
+                    selectZoneVisualisation.appendChild(option);
+                });
 
-            if (zones.length > 0) {
-                selectZoneVisualisation.value = zones[0];
-                loadStockData(zones[0]);
+                if (zones.length > 0) {
+                    selectZoneVisualisation.value = zones[0];
+                    loadStockData(zones[0]);
+                }
             }
-
         } catch (error) {
-            console.error('Erreur lors du chargement des zones pour la visualisation:', error);
-            visualisationMessage.textContent = 'Erreur lors du chargement des zones: ' + error.message;
-            visualisationMessage.className = 'message error';
-            selectZoneVisualisation.innerHTML = '<option value="">Erreur de chargement</option>';
+            console.error('Erreur visualisation zones:', error);
+            if (isLocalDevelopment()) {
+                selectZoneVisualisation.innerHTML = '<option value="">Mode développement - données limitées</option>';
+            }
         }
     }
 
@@ -370,23 +398,24 @@ document.addEventListener('DOMContentLoaded', () => {
         visualisationMessage.className = 'message info';
         stockDisplayArea.innerHTML = '';
 
-        const visualizationUrl = `${APP_SCRIPT_URL}?etat=1&zone=${encodeURIComponent(zone)}`;
-
         try {
-            const response = await fetch(visualizationUrl);
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Erreur HTTP! Statut: ${response.status} - ${errorText}`);
+            const response = await fetch(`${APP_SCRIPT_URL}?etat=1&zone=${encodeURIComponent(zone)}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                displayStockData(data, zone);
+            } else {
+                throw new Error(`Erreur HTTP ${response.status}`);
             }
-            const data = await response.json();
-            console.log(`Données de stock pour ${zone}:`, data);
-
-            displayStockData(data, zone);
-
         } catch (error) {
-            console.error('Erreur lors du chargement des données de stock:', error);
-            visualisationMessage.textContent = 'Erreur lors du chargement des données de stock: ' + error.message;
-            visualisationMessage.className = 'message error';
+            console.error('Erreur stock:', error);
+            if (isLocalDevelopment()) {
+                visualisationMessage.textContent = 'Mode développement - visualisation limitée par CORS';
+                visualisationMessage.className = 'message warning';
+            } else {
+                visualisationMessage.textContent = 'Erreur lors du chargement: ' + error.message;
+                visualisationMessage.className = 'message error';
+            }
         }
     }
 
@@ -423,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             stockDisplayArea.innerHTML += '<p>Aucune donnée de stock trouvée pour cette zone ou le stock est vide.</p>';
             visualisationMessage.textContent = 'Aucune donnée de stock trouvée.';
-            visualisationMessage.className = 'message error';
+            visualisationMessage.className = 'message warning';
         }
     }
 });
