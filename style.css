@@ -75,11 +75,29 @@ button {
     cursor: pointer;
     font-size: 16px;
     transition: background-color 0.3s ease;
-    margin-top: 10px; /* Ajouté pour espacement */
+    margin: 5px;
 }
 
 button:hover {
     background-color: #fb8c00; /* Orange foncé */
+}
+
+/* Boutons secondaires */
+.btn-secondary {
+    background-color: #2196F3; /* Bleu */
+}
+
+.btn-secondary:hover {
+    background-color: #1976D2; /* Bleu foncé */
+}
+
+/* Boutons de danger */
+.btn-danger {
+    background-color: #f44336; /* Rouge */
+}
+
+.btn-danger:hover {
+    background-color: #d32f2f; /* Rouge foncé */
 }
 
 .message {
@@ -113,6 +131,81 @@ button:hover {
     border: 1px solid #f44336;
 }
 
+/* --- Styles pour les matériels multiples --- */
+
+.materiels-container {
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    background-color: #fafafa;
+}
+
+.materiel-counter {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.materiel-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    transition: box-shadow 0.2s ease;
+}
+
+.materiel-item:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.materiel-item input[list] {
+    flex: 2;
+    margin: 0;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+.materiel-item input[type="number"] {
+    flex: 1;
+    margin: 0;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    min-width: 100px;
+}
+
+.materiel-item button {
+    margin: 0;
+    padding: 8px 12px;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.add-materiel-container {
+    text-align: center;
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.remove-materiel-btn {
+    background-color: #f44336; /* Rouge pour supprimer */
+}
+
+.remove-materiel-btn:hover {
+    background-color: #d32f2f;
+}
+
+/* --- Fin des styles pour matériels multiples --- */
+
 .stock-table {
     width: 100%;
     border-collapse: collapse;
@@ -132,6 +225,14 @@ button:hover {
     color: #666;
 }
 
+.stock-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.stock-table tbody tr:hover {
+    background-color: #f0f0f0;
+}
+
 footer {
     text-align: center;
     padding: 20px;
@@ -141,36 +242,67 @@ footer {
     font-size: 0.9em;
 }
 
-/* Styles pour les champs matériel dynamiques */
-.materiau-item {
-    border: 1px solid #e0e0e0;
-    padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 5px;
-    background-color: #fcfcfc;
+/* Styles responsives pour mobile */
+@media (max-width: 768px) {
+    main {
+        margin: 10px;
+        padding: 15px;
+    }
+    
+    .materiel-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .materiel-item input[list],
+    .materiel-item input[type="number"] {
+        flex: none;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    
+    .materiel-item button {
+        align-self: center;
+        width: auto;
+    }
+    
+    button {
+        font-size: 14px;
+        padding: 10px 16px;
+    }
 }
 
-.materiau-item label {
-    display: inline-block; /* Pour aligner avec les inputs */
-    width: 80px; /* Ajuster la largeur si besoin */
-    margin-right: 10px;
+/* Amélioration de l'accessibilité */
+button:focus,
+input:focus,
+select:focus {
+    outline: 2px solid #FF9800;
+    outline-offset: 2px;
 }
 
-.materiau-item input {
-    width: calc(50% - 100px); /* Ajuster la largeur des inputs */
-    display: inline-block;
-    margin-right: 10px;
+/* Animation pour les messages */
+.message {
+    opacity: 0;
+    animation: fadeIn 0.3s ease-in forwards;
 }
 
-.materiau-item .quantite-input {
-    width: calc(30% - 100px); /* Plus petit pour quantité */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-.remove-materiau-btn {
-    background-color: #f44336; /* Rouge pour supprimer */
-    float: right; /* Aligner à droite */
-    margin-top: 0;
+/* Style pour les inputs invalides */
+input:invalid {
+    border-color: #f44336;
 }
-.remove-materiau-btn:hover {
-    background-color: #d32f2f;
+
+input:valid {
+    border-color: #4CAF50;
+}
+
+/* Indicateur visuel pour les champs requis */
+input[required]:invalid::after {
+    content: " *";
+    color: #f44336;
 }
