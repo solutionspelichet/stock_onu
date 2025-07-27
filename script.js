@@ -1,1101 +1,942 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion Stock Matériel ONU</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#FF9800"/>
-    <style>
-        /* Variables CSS pour thème */
-        :root {
-            --primary-color: #FF9800;
-            --primary-dark: #fb8c00;
-            --secondary-color: #2196F3;
-            --success-color: #4CAF50;
-            --warning-color: #ff9800;
-            --error-color: #f44336;
-            --background-color: #f4f4f4;
-            --card-background: #fff;
-            --text-color: #333;
-            --border-color: #ddd;
-        }
+// URL de votre API Google Apps Script
+// ASSUREZ-VOUS QUE C'EST LA BONNE URL DÉPLOYÉE !
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQrltt-idECi0_Z7zgocc4gIddmcU9TbgSm-UeeM5PPpHwSyiTCKbVxOzrmH1jH1hp/exec'; // Remplacer par votre URL réelle
 
-        [data-theme="dark"] {
-            --background-color: #121212;
-            --card-background: #1e1e1e;
-            --text-color: #ffffff;
-            --border-color: #333;
-        }
+// Variables globales
+let materielCounter = 0;
+let deferredPrompt; // Pour la PWA
+let currentStep = 1; // Pour le formulaire multi-étapes
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
+// --- NOUVELLES FONCTIONS UTILITAIRES ---
 
-        header {
-            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-            color: white;
-            padding: 1rem;
-            text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+// 1. Debouncing pour les requêtes API et événements rapides
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
 
-        header h1 {
-            margin: 0;
-            font-size: 1.3rem;
-        }
-
-        .theme-toggle {
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            transition: background 0.3s ease;
-        }
-
-        .theme-toggle:hover {
-            background: rgba(255,255,255,0.3);
-        }
-
-        main {
-            padding: 15px;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        section {
-            margin-bottom: 25px;
-            padding: 20px;
-            background: var(--card-background);
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border: 1px solid var(--border-color);
-        }
-
-        section:last-of-type {
-            margin-bottom: 20px;
-        }
-
-        h2 {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--primary-color);
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-            font-size: 1.2rem;
-        }
-
-        .form-group {
-            margin-bottom: 18px;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text-color);
-            font-size: 0.95rem;
-        }
-
-        /* Optimisation mobile pour les inputs */
-        input[type="text"],
-        input[type="number"],
-        input[type="date"],
-        select {
-            width: 100%;
-            padding: 16px 12px; /* Plus grand pour mobile */
-            margin-bottom: 10px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 16px; /* Évite le zoom sur iOS */
-            background: var(--card-background);
-            color: var(--text-color);
-            transition: border-color 0.3s ease;
-        }
-
-        input:focus,
-        select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
-        }
-
-        /* Boutons optimisés tactile */
-        button {
-            background-color: var(--primary-color);
-            color: white;
-            padding: 16px 24px; /* Plus grand pour tactile */
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            margin: 5px;
-            min-height: 48px; /* Taille minimale tactile */
-            min-width: 48px;
-            touch-action: manipulation;
-        }
-
-        button:hover {
-            background-color: var(--primary-dark);
-            transform: translateY(-2px);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        .btn-secondary {
-            background-color: var(--secondary-color);
-        }
-
-        .btn-secondary:hover {
-            background-color: #1976D2;
-        }
-
-        .btn-danger {
-            background-color: var(--error-color);
-        }
-
-        .btn-danger:hover {
-            background-color: #d32f2f;
-        }
-
-        /* Conteneur matériels amélioré */
-        .materiels-container {
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
-            padding: 15px;
-            margin: 15px 0;
-            background: rgba(255, 152, 0, 0.05);
-        }
-
-        .materiel-counter {
-            font-size: 14px;
-            color: var(--primary-color);
-            margin-bottom: 15px;
-            text-align: center;
-            font-weight: bold;
-        }
-
-        .materiel-item {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 15px;
-            padding: 15px;
-            background: var(--card-background);
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .materiel-inputs {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .materiel-inputs input:first-child {
-            flex: 2;
-        }
-
-        .materiel-inputs input:last-child {
-            flex: 1;
-        }
-
-        .add-materiel-container {
-            text-align: center;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid var(--border-color);
-        }
-
-        /* Messages améliorés */
-        .message {
-            padding: 16px;
-            margin-top: 15px;
-            border-radius: 8px;
-            font-weight: 600;
-            border-left: 4px solid;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .message.info {
-            background-color: #e7f3fe;
-            color: var(--secondary-color);
-            border-color: var(--secondary-color);
-        }
-
-        .message.success {
-            background-color: #e6ffe6;
-            color: var(--success-color);
-            border-color: var(--success-color);
-        }
-
-        .message.warning {
-            background-color: #fff3e0;
-            color: var(--warning-color);
-            border-color: var(--warning-color);
-        }
-
-        .message.error {
-            background-color: #ffe6e6;
-            color: var(--error-color);
-            border-color: var(--error-color);
-        }
-
-        /* Loading spinner */
-        .loading {
-            display: inline-block;
-            width: 16px;
-            height: 16px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: var(--primary-color);
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 8px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Tables responsives */
-        .stock-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: var(--card-background);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-
-        .stock-table th,
-        .stock-table td {
-            border: 1px solid var(--border-color);
-            padding: 12px 8px;
-            text-align: left;
-        }
-
-        .stock-table th {
-            background-color: var(--primary-color);
-            color: white;
-            font-weight: 600;
-        }
-
-        .stock-table tbody tr:nth-child(even) {
-            background-color: rgba(255, 152, 0, 0.05);
-        }
-
-        .stock-table tbody tr:hover {
-            background-color: rgba(255, 152, 0, 0.1);
-        }
-
-        footer {
-            text-align: center;
-            padding: 20px;
-            margin-top: 30px;
-            background-color: var(--card-background);
-            color: var(--text-color);
-            font-size: 0.9em;
-            border-top: 1px solid var(--border-color);
-        }
-
-        /* Responsive mobile */
-        @media (max-width: 768px) {
-            main {
-                padding: 10px;
-            }
-            
-            section {
-                padding: 15px;
-            }
-            
-            header h1 {
-                font-size: 1.1rem;
-            }
-            
-            .materiel-inputs {
-                flex-direction: column;
-            }
-            
-            .materiel-inputs input {
-                width: 100%;
-            }
-            
-            button {
-                width: 100%;
-                margin: 5px 0;
-            }
-            
-            .add-materiel-container button {
-                width: auto;
-                margin: 0 auto;
-                display: block;
-            }
-        }
-
-        /* Accessibilité */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-
-        /* Prompt d'installation PWA */
-        .install-prompt {
-            background: linear-gradient(135deg, var(--secondary-color), #1976D2);
-            color: white;
-            padding: 15px;
-            text-align: center;
-            border-radius: 8px;
-            margin: 15px;
-            display: none;
-            animation: slideIn 0.5s ease;
-        }
-
-        .install-prompt.show {
-            display: block;
-        }
-
-        .install-prompt button {
-            background: rgba(255,255,255,0.2);
-            margin: 5px;
-        }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>📦 Gestion Stock Matériel ONU</h1>
-        <button class="theme-toggle" onclick="toggleTheme()" title="Changer le thème">
-            🌙
-        </button>
-    </header>
-
-    <div class="install-prompt" id="installPrompt">
-        <p>📱 <strong>Installer l'app</strong> sur votre téléphone pour un accès rapide !</p>
-        <button onclick="installApp()">Installer</button>
-        <button onclick="dismissInstall()">Plus tard</button>
-    </div>
-
-    <main>
-        <section id="enregistrement-mouvement">
-            <h2>Enregistrer un Mouvement</h2>
-            <form id="mouvementForm">
-                <div class="form-group">
-                    <label for="feuilleCible">📋 Sélectionner la Feuille de Journalisation (Source du mouvement si Transfert):</label>
-                    <select id="feuilleCible" name="feuille" required>
-                        <option value="Stock Voie Creuse">Stock Voie Creuse</option>
-                        <option value="Stock Bibliothèque">Stock Bibliothèque</option>
-                        <option value="Répartition Journalière">Répartition Journalière (Pour les entrées de transfert)</option>
-                        <option value="Restes Zones">Restes Zones (Journal d'inventaire uniquement)</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="dateMouvement">📅 Date:</label>
-                    <input type="date" id="dateMouvement" name="date" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="typeMouvement">🔄 Type de mouvement:</label>
-                    <select id="typeMouvement" name="type" required>
-                        <option value="Entrée">➡️ Entrée (vers la 'Zone' spécifiée)</option>
-                        <option value="Sortie">⬅️ Sortie (de la 'Zone' spécifiée)</option>
-                        <option value="Transfert">🔄 Transfert (De la 'Feuille Source' vers la 'Zone' spécifiée)</option>
-                    </select>
-                </div>
-
-                <div id="zoneInputFieldGroup" class="form-group">
-                    <label for="zoneMouvement">📍 Zone impactée par le mouvement (Destination ou Origine):</label>
-                    <input list="zonesList" id="zoneMouvement" name="zone" placeholder="Sélectionner ou Saisir une Zone" required>
-                    <datalist id="zonesList"></datalist>
-                </div>
-
-                <div class="form-group">
-                    <label>📦 Matériels et Quantités:</label>
-                    <div class="materiels-container">
-                        <div class="materiel-counter">
-                            <span id="materielCount">1</span> matériel(s) ajouté(s)
-                        </div>
-                        <div id="materielsContainer">
-                            </div>
-                        <div class="add-materiel-container">
-                            <button type="button" id="addMaterielBtn" class="btn-secondary">➕ Ajouter un matériel</button>
-                        </div>
-                    </div>
-                </div>
-
-                <button type="submit">💾 Enregistrer Mouvement</button>
-            </form>
-            <p id="mouvementMessage" class="message"></p>
-        </section>
-
-        <section id="visualisation-stock">
-            <h2>📊 Visualisation des Stocks par Zone</h2>
-            <div class="form-group">
-                <label for="selectZoneVisualisation">📍 Sélectionner une Zone:</label>
-                <select id="selectZoneVisualisation">
-                </select>
-            </div>
-            <button id="chargerStockBtn">🔍 Charger Stock</button>
-            <div id="stockDisplayArea">
-                <p style="text-align: center; color: #666; padding: 40px;">
-                    Sélectionnez une zone et cliquez sur "Charger Stock" pour visualiser.
-                </p>
-            </div>
-            <p id="visualisationMessage" class="message"></p>
-        </section>
-    </main>
-
-    <footer>
-        <p>&copy; 2025 Gestion Stock - Version Mobile Optimisée</p>
-    </footer>
-
-    <datalist id="materielsList"></datalist>
-
-    <script>
-        // URL de votre API Google Apps Script
-        const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQrltt-idECi0_Z7zgocc4gIddmcU9TbgSm-UeeM5PPpHwSyiTCKbVxOzrmH1jH1hp/exec';
+// 2. Cache en mémoire pour réduire les appels API (côté client)
+class DataCache {
+    constructor(ttl = 300000) { // 5 minutes par défaut
+        this.cache = new Map();
+        this.ttl = ttl;
+    }
+    
+    set(key, value) {
+        this.cache.set(key, {
+            value,
+            timestamp: Date.now()
+        });
+    }
+    
+    get(key) {
+        const item = this.cache.get(key);
+        if (!item) return null;
         
-        // Variables globales
-        let materielCounter = 0;
-        let deferredPrompt;
+        // Invalidate cache if expired
+        if (Date.now() - item.timestamp > this.ttl) {
+            this.cache.delete(key);
+            return null;
+        }
+        
+        return item.value;
+    }
 
-        // Mapping pour la PWA
-        const NOM_FEUILLE_TO_NOM_ZONE_FRONTEND = {
-            "Stock Voie Creuse": "Voie Creuse",
-            "Stock Bibliothèque": "Bibliothèque",
+    delete(key) {
+        this.cache.delete(key);
+    }
+
+    clear() {
+        this.cache.clear();
+    }
+}
+
+const dataCache = new DataCache(); // Instance globale du cache
+
+// 3. Rate limiting côté client
+class RateLimiter {
+    constructor(maxRequests = 5, windowMs = 10000) { // 5 requêtes toutes les 10 secondes
+        this.requests = [];
+        this.maxRequests = maxRequests;
+        this.windowMs = windowMs;
+    }
+    
+    canMakeRequest() {
+        const now = Date.now();
+        // Filter out requests older than the window
+        this.requests = this.requests.filter(time => now - time < this.windowMs);
+        
+        if (this.requests.length >= this.maxRequests) {
+            return false;
+        }
+        
+        this.requests.push(now);
+        return true;
+    }
+    
+    getWaitTime() {
+        if (this.requests.length === 0) return 0;
+        const oldestRequestTime = this.requests[0];
+        const timeElapsedInWindow = Date.now() - oldestRequestTime;
+        return Math.max(0, this.windowMs - timeElapsedInWindow);
+    }
+}
+
+const rateLimiter = new RateLimiter(); // Instance globale du rate limiter
+
+// --- GESTION DES REQUÊTES API (avec rate limiting et gestion d'erreur) ---
+async function makeApiRequest(endpoint, params = {}, method = 'GET', data = null) {
+    if (!rateLimiter.canMakeRequest()) {
+        const waitTime = Math.ceil(rateLimiter.getWaitTime() / 1000);
+        ToastManager.show(`Veuillez patienter ${waitTime} secondes avant d'envoyer une nouvelle requête.`, 'warning');
+        LoadingManager.hide();
+        return { ok: false, status: 429, message: 'Too Many Requests' };
+    }
+
+    const url = new URL(APP_SCRIPT_URL);
+    // Ajoutez un ID client pour le rate limiting côté serveur (si implémenté)
+    params.clientId = DataProtection.generateSessionId(); // Ou un ID utilisateur réel si authentifié
+
+    Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+
+    const options = {
+        method: method,
+        mode: 'cors', // Apps Script est configuré pour gérer le CORS
+        cache: 'no-cache'
+    };
+
+    if (data && method === 'POST') {
+        options.headers = {
+            'Content-Type': 'application/json'
+        };
+        options.body = JSON.stringify(data);
+    }
+
+    try {
+        const response = await fetch(url.toString(), options);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP Error: ${response.status} - ${errorText}`);
+        }
+        return response;
+    } catch (error) {
+        console.error("Erreur lors de la requête API:", error);
+        throw error; // Re-throw to be caught by the calling function
+    }
+}
+
+
+// --- GESTION DU FORMULAIRE MULTI-ÉTAPES ---
+function showStep(stepNumber) {
+    document.querySelectorAll('.form-step').forEach(stepDiv => {
+        stepDiv.classList.remove('active');
+    });
+    document.getElementById(`step${stepNumber}`).classList.add('active');
+
+    document.querySelectorAll('.step-indicator .step').forEach((indicator, index) => {
+        if (index + 1 < stepNumber) {
+            indicator.classList.add('completed');
+            indicator.classList.remove('active');
+        } else if (index + 1 === stepNumber) {
+            indicator.classList.add('active');
+            indicator.classList.remove('completed');
+        } else {
+            indicator.classList.remove('active', 'completed');
+        }
+    });
+    currentStep = stepNumber;
+}
+
+// --- GESTION DES THÈMES ---
+function toggleTheme() {
+    const body = document.body;
+    const themeToggle = document.querySelector('.theme-toggle');
+    
+    if (body.getAttribute('data-theme') === 'dark') {
+        body.removeAttribute('data-theme');
+        themeToggle.textContent = '🌙';
+        localStorage.setItem('theme', 'light');
+    } else {
+        body.setAttribute('data-theme', 'dark');
+        themeToggle.textContent = '☀️';
+        localStorage.setItem('theme', 'dark');
+    }
+}
+
+function loadSavedTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+        document.body.setAttribute('data-theme', 'dark');
+        document.querySelector('.theme-toggle').textContent = '☀️';
+    }
+}
+
+// --- PWA LOGIC ---
+function setupPWA() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        document.getElementById('installPrompt').classList.add('show');
+    });
+}
+
+function installApp() {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('App installée');
+                ToastManager.show('📱 Application installée avec succès !', 'success');
+            }
+            deferredPrompt = null;
+        });
+    }
+    dismissInstall();
+}
+
+function dismissInstall() {
+    document.getElementById('installPrompt').classList.remove('show');
+}
+
+
+// --- FORMULAIRE D'ENREGISTREMENT DE MOUVEMENT ---
+// Mapping pour la PWA
+const NOM_FEUILLE_TO_NOM_ZONE_FRONTEND = {
+    "Stock Voie Creuse": "Voie Creuse",
+    "Stock Bibliothèque": "Bibliothèque",
+};
+
+function updateFormLabelsAndVisibility() {
+    const typeSelected = document.getElementById('typeMouvement').value;
+    const feuilleCible = document.getElementById('feuilleCible').value;
+    const zoneLabel = document.querySelector('#zoneInputFieldGroup label');
+    const feuilleCibleSelect = document.getElementById('feuilleCible');
+    const typeMouvementSelect = document.getElementById('typeMouvement');
+    const zoneMouvementInput = document.getElementById('zoneMouvement');
+
+    if (typeSelected === "Transfert") {
+        feuilleCibleSelect.querySelector('option[value="Stock Voie Creuse"]').disabled = false;
+        feuilleCibleSelect.querySelector('option[value="Stock Bibliothèque"]').disabled = false;
+        feuilleCibleSelect.querySelector('option[value="Répartition Journalière"]').disabled = true;
+        feuilleCibleSelect.querySelector('option[value="Restes Zones"]').disabled = true;
+        zoneLabel.innerHTML = '📍 Zone de Destination du Transfert:';
+        if (!['Stock Voie Creuse', 'Stock Bibliothèque'].includes(feuilleCible)) {
+            feuilleCibleSelect.value = 'Stock Voie Creuse';
+        }
+    } else if (typeSelected === "Entrée" || typeSelected === "Sortie") {
+        feuilleCibleSelect.querySelector('option[value="Stock Voie Creuse"]').disabled = false;
+        feuilleCibleSelect.querySelector('option[value="Stock Bibliothèque"]').disabled = false;
+        feuilleCibleSelect.querySelector('option[value="Répartition Journalière"]').disabled = true;
+        feuilleCibleSelect.querySelector('option[value="Restes Zones"]').disabled = true;
+        if (typeSelected === "Entrée") {
+            zoneLabel.innerHTML = '📍 Zone de Destination (où le matériel est ajouté):';
+        } else {
+            zoneLabel.innerHTML = '📍 Zone d\'Origine (d\'où le matériel est retiré):';
+        }
+        zoneMouvementInput.value = NOM_FEUILLE_TO_NOM_ZONE_FRONTEND[feuilleCible] || '';
+    } else if (feuilleCible === "Répartition Journalière") {
+        zoneLabel.innerHTML = '📍 Zone de Distribution:';
+        typeMouvementSelect.value = "Entrée";
+        typeMouvementSelect.disabled = true;
+    } else if (feuilleCible === "Restes Zones") {
+        zoneLabel.innerHTML = '📍 Zone d\'Inventaire:';
+        typeMouvementSelect.value = "Entrée";
+        typeMouvementSelect.disabled = true;
+    }
+
+    if (feuilleCible !== "Répartition Journalière" && feuilleCible !== "Restes Zones") {
+        typeMouvementSelect.disabled = false;
+    }
+
+    zoneMouvementInput.required = true;
+}
+
+function addMaterielItem() {
+    materielCounter++;
+    const container = document.getElementById('materielsContainer');
+    
+    const materielDiv = document.createElement('div');
+    materielDiv.className = 'materiel-item';
+    materielDiv.dataset.id = materielCounter;
+    
+    materielDiv.innerHTML = `
+        <div class="materiel-inputs">
+            <input list="materielsList" 
+                   placeholder="📦 Sélectionner ou saisir un matériel" 
+                   class="materiel-input" 
+                   required>
+            <input type="number" 
+                   placeholder="🔢 Quantité" 
+                   class="quantite-input" 
+                   min="1" 
+                   required>
+        </div>
+        <button type="button" class="btn-danger remove-materiel-btn button-enhanced">🗑️ Supprimer</button>
+    `;
+    
+    container.appendChild(materielDiv);
+    
+    const removeBtn = materielDiv.querySelector('.remove-materiel-btn');
+    removeBtn.addEventListener('click', () => removeMaterielItem(materielDiv));
+    
+    updateMaterielCounter();
+}
+
+function removeMaterielItem(materielDiv) {
+    const container = document.getElementById('materielsContainer');
+    if (container.children.length > 1) {
+        materielDiv.remove();
+        updateMaterielCounter();
+    } else {
+        ToastManager.show('⚠️ Au moins un matériel est requis.', 'warning');
+    }
+}
+
+function updateMaterielCounter() {
+    const count = document.getElementById('materielsContainer').children.length;
+    document.getElementById('materielCount').textContent = count;
+}
+
+
+async function handleFormSubmit(event) {
+    event.preventDefault();
+    LoadingManager.show('Enregistrement des mouvements...');
+    
+    try {
+        const formData = {
+            feuilleCible: sanitizeInput(document.getElementById('feuilleCible').value),
+            date: document.getElementById('dateMouvement').value,
+            type: sanitizeInput(document.getElementById('typeMouvement').value),
+            zone: sanitizeInput(document.getElementById('zoneMouvement').value),
+            items: []
         };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeApp();
-            setupPWA();
+        const materielItems = document.querySelectorAll('.materiel-item');
+        for (const item of materielItems) {
+            const materiel = sanitizeInput(item.querySelector('.materiel-input').value);
+            const quantite = item.querySelector('.quantite-input').value;
+            
+            formData.items.push({
+                materiel: materiel,
+                quantite: quantite // Sanitized to number by FormValidator
+            });
+        }
+
+        const validationResult = FormValidator.validateMovement(formData);
+        if (!validationResult.isValid) {
+            validationResult.errors.forEach(err => ToastManager.show(err, 'error'));
+            LoadingManager.hide();
+            return;
+        }
+
+        // Use the submitBatchMovement for API calls
+        const results = await submitBatchMovement(formData);
+
+        let successCount = 0;
+        let failureMessages = [];
+
+        results.forEach(result => {
+            if (result.status === 'fulfilled') {
+                try {
+                    const responseText = result.value;
+                    if (responseText.startsWith('Succès:')) {
+                         successCount++;
+                    } else {
+                        failureMessages.push(responseText);
+                    }
+                } catch (parseError) {
+                    failureMessages.push("Réponse API inattendue pour un item.");
+                }
+            } else {
+                failureMessages.push(result.reason.message || "Erreur inconnue.");
+            }
         });
 
-        function initializeApp() {
-            const mouvementForm = document.getElementById('mouvementForm');
-            const dateMouvementInput = document.getElementById('dateMouvement');
-            const feuilleCibleSelect = document.getElementById('feuilleCible');
-            const typeMouvementSelect = document.getElementById('typeMouvement');
-            const addMaterielBtn = document.getElementById('addMaterielBtn');
-            const chargerStockBtn = document.getElementById('chargerStockBtn');
-
-            // Initialisation de la date
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            dateMouvementInput.value = `${yyyy}-${mm}-${dd}`;
-
-            // Charger les données initiales
+        if (successCount > 0) {
+            ToastManager.show(`✅ Mouvements enregistrés avec succès : ${successCount}/${formData.items.length} matériel(s) traité(s).`, 'success');
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            
+            resetForm();
+            dataCache.clear(); // Clear relevant cache entries
             loadAllZonesForDatalist();
-            loadAllMaterielsForDatalist();
+            loadAllMaterielsForDatalist(); 
             loadAvailableZonesForVisualization();
-
-            // Ajouter le premier matériel
-            addMaterielItem();
-
-            // Event listeners
-            typeMouvementSelect.addEventListener('change', updateFormLabelsAndVisibility);
-            feuilleCibleSelect.addEventListener('change', updateFormLabelsAndVisibility);
-            addMaterielBtn.addEventListener('click', addMaterielItem);
-            mouvementForm.addEventListener('submit', handleFormSubmit);
-            chargerStockBtn.addEventListener('click', handleLoadStock);
-
-            // Initialiser l'affichage
-            updateFormLabelsAndVisibility();
-
-            // Charger le thème sauvegardé
-            loadSavedTheme();
+        } 
+        
+        if (failureMessages.length > 0) {
+            ToastManager.show(`⚠️ Certaines opérations ont échoué : ${failureMessages.join(', ')}. Vérifiez vos données dans Google Sheets.`, 'warning', 10000);
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+        } else if (successCount === 0) {
+            ToastManager.show('❌ Aucun mouvement n\'a pu être enregistré. Vérifiez vos entrées.', 'error');
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
         }
 
-        // PWA et thème
-        function setupPWA() {
-            // Détecter si l'app peut être installée
-            window.addEventListener('beforeinstallprompt', (e) => {
-                e.preventDefault();
-                deferredPrompt = e;
-                document.getElementById('installPrompt').classList.add('show');
+    } catch (error) {
+        console.error('Erreur lors de l\'enregistrement:', error);
+        ToastManager.show('❌ Erreur générale lors de l\'enregistrement : ' + error.message, 'error');
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+    } finally {
+        LoadingManager.hide();
+    }
+}
+
+// Fonction pour soumettre un lot de mouvements à l'API Apps Script
+async function sendBatchToAPI(batch) {
+    const params = {
+        action: 'addBatchMovement', // Nouvelle action pour le traitement par lot
+        feuilleCible: batch.feuilleCible,
+        date: batch.date,
+        type: batch.type,
+        zone: batch.zone,
+    };
+
+    // Encoder les items en JSON string pour l'envoi en POST
+    const batchData = {
+        items: batch.items.map(item => ({
+            materiel: item.materiel,
+            quantite: item.quantite
+        }))
+    };
+
+    try {
+        const response = await makeApiRequest('', params, 'POST', batchData); // Envoi en POST
+        const resultText = await response.text();
+        return resultText; // Le script Apps doit retourner un texte de succès/échec
+    } catch (error) {
+        console.error("Erreur lors de l'envoi du lot à l'API:", error);
+        throw new Error(`Échec de l'envoi d'un lot: ${error.message}`);
+    }
+}
+
+
+function resetForm() {
+    document.getElementById('mouvementForm').reset();
+    
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    document.getElementById('dateMouvement').value = `${yyyy}-${mm}-${dd}`;
+    
+    const container = document.getElementById('materielsContainer');
+    container.innerHTML = '';
+    materielCounter = 0;
+    addMaterielItem();
+    
+    updateFormLabelsAndVisibility();
+    showStep(1); // Revenir à la première étape
+}
+
+
+// --- CHARGEMENT DES DONNÉES ET VISUALISATION ---
+
+async function loadAllZonesForDatalist() {
+    const cacheKey = 'zonesDatalist';
+    let zones = dataCache.get(cacheKey);
+
+    if (!zones) {
+        try {
+            const response = await makeApiRequest('?get=zones');
+            zones = await response.json();
+            dataCache.set(cacheKey, zones);
+        } catch (error) {
+            console.error('Erreur lors du chargement des zones depuis l\'API:', error);
+            // Fallback to default zones
+            zones = ["Voie Creuse", "Bibliothèque", "étage 1", "étage 2", "étage 3", "étage 4", "étage 5", "reading room 1", "reading room 2", "compactus", "b26"];
+            ToastManager.show('Chargement des zones API échoué. Utilisation des zones par défaut.', 'warning');
+        }
+    }
+    
+    const zonesDatalist = document.getElementById('zonesList');
+    zonesDatalist.innerHTML = '';
+    zones.forEach(zone => {
+        const option = document.createElement('option');
+        option.value = zone;
+        zonesDatalist.appendChild(option);
+    });
+}
+
+async function loadAllMaterielsForDatalist() {
+    const cacheKey = 'materielsDatalist';
+    let materiels = dataCache.get(cacheKey);
+
+    if (!materiels) {
+        try {
+            const response = await makeApiRequest('?get=materiels');
+            materiels = await response.json();
+            dataCache.set(cacheKey, materiels);
+        } catch (error) {
+            console.error('Erreur lors du chargement des matériels depuis l\'API:', error);
+            // Fallback to default materials
+            materiels = ["Cadres-palette CFF", "Cartons 60x37x38", "Couvercles cadres-palette", "Intercalaires 120x80", "Palettes 80x120", "rouleau scotch", "papier blanc"];
+            ToastManager.show('Chargement des matériels API échoué. Utilisation des matériels par défaut.', 'warning');
+        }
+    }
+    
+    const materielsDatalist = document.getElementById('materielsList');
+    materielsDatalist.innerHTML = '';
+    materiels.forEach(materiel => {
+        const option = document.createElement('option');
+        option.value = materiel;
+        materielsDatalist.appendChild(option);
+    });
+}
+
+async function loadAvailableZonesForVisualization() {
+    const selectZoneVisualisation = document.getElementById('selectZoneVisualisation');
+    const cacheKey = 'zonesVisualization';
+    let zones = dataCache.get(cacheKey);
+
+    if (!zones) {
+        try {
+            const response = await makeApiRequest('?get=zones');
+            zones = await response.json();
+            dataCache.set(cacheKey, zones);
+        } catch (error) {
+            console.error('Erreur lors du chargement des zones pour visualisation depuis l\'API:', error);
+            zones = ["Voie Creuse", "Bibliothèque", "étage 1", "étage 2", "étage 3"]; // Fallback
+            ToastManager.show('Chargement des zones de visualisation API échoué. Utilisation des zones par défaut.', 'warning');
+        }
+    }
+    
+    selectZoneVisualisation.innerHTML = '<option value="">-- Sélectionner une zone --</option>';
+    zones.forEach(zone => {
+        const option = document.createElement('option');
+        option.value = zone;
+        option.textContent = zone;
+        selectZoneVisualisation.appendChild(option);
+    });
+
+    if (zones.length > 0) {
+        // Debounce initial load to prevent rapid calls if multiple elements trigger it
+        debounce(() => loadStockData(zones[0]), 300)();
+    }
+}
+
+async function handleLoadStock() {
+    const selectedZone = document.getElementById('selectZoneVisualisation').value;
+    if (selectedZone) {
+        loadStockData(selectedZone);
+    } else {
+        ToastManager.show('⚠️ Veuillez sélectionner une zone pour visualiser le stock.', 'warning');
+    }
+}
+
+async function loadStockData(zone) {
+    LoadingManager.show(`Chargement du stock pour "${zone}"...`);
+    document.getElementById('stockDisplayArea').innerHTML = ''; // Clear previous data
+    
+    const skeleton = ProgressiveLoader.showSkeleton('stockDisplayArea'); // Show skeleton
+
+    try {
+        const response = await makeApiRequest(`?etat=1&zone=${encodeURIComponent(zone)}`);
+        const data = await response.json();
+        
+        ProgressiveLoader.hideSkeleton(skeleton); // Hide skeleton
+        displayStockData(data, zone);
+        ToastManager.show(`✅ Stock pour "${zone}" chargé avec succès.`, 'success');
+    } catch (error) {
+        console.error('Erreur lors du chargement des données de stock:', error);
+        ProgressiveLoader.hideSkeleton(skeleton); // Hide skeleton
+        document.getElementById('stockDisplayArea').innerHTML = `
+            <p style="text-align: center; color: var(--error-color); padding: 40px;">
+                ❌ Erreur lors du chargement des données pour "${zone}". Veuillez réessayer.
+            </p>
+        `;
+        ToastManager.show(`❌ Échec du chargement du stock pour "${zone}": ${error.message}`, 'error');
+    } finally {
+        LoadingManager.hide();
+    }
+}
+
+function displayStockData(data, zoneName) {
+    const stockDisplayArea = document.getElementById('stockDisplayArea');
+    stockDisplayArea.innerHTML = ''; // Ensure it's clean before adding content
+
+    const title = document.createElement('h3');
+    title.innerHTML = `📦 État des stocks pour ${zoneName}:`;
+    title.style.color = 'var(--primary-color)';
+    title.style.textAlign = 'center';
+    title.style.marginBottom = '20px';
+    stockDisplayArea.appendChild(title);
+
+    if (data && data.length > 1) {
+        const tableContainer = document.createElement('div');
+        tableContainer.classList.add('table-responsive');
+
+        const table = document.createElement('table');
+        table.classList.add('stock-table');
+
+        let html = '<thead><tr>';
+        // Check if data[0] exists before iterating
+        if (data[0] && Array.isArray(data[0])) {
+            data[0].forEach(header => {
+                html += `<th>${header}</th>`;
             });
         }
+        html += '</tr></thead><tbody>';
 
-        function installApp() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('App installée');
-                        showSuccessMessage('📱 Application installée avec succès !');
-                    }
-                    deferredPrompt = null;
+        for (let i = 1; i < data.length; i++) {
+            html += '<tr>';
+            if (data[i] && Array.isArray(data[i])) {
+                data[i].forEach(cell => {
+                    html += `<td>${cell}</td>`;
                 });
             }
-            dismissInstall();
+            html += '</tr>';
         }
+        html += '</tbody>';
+        table.innerHTML = html;
+        tableContainer.appendChild(table);
+        stockDisplayArea.appendChild(tableContainer);
+        
+    } else {
+        stockDisplayArea.innerHTML += '<p style="text-align: center; color: #666; padding: 40px;">📭 Aucune donnée de stock trouvée pour cette zone ou le stock est vide.</p>';
+    }
+}
 
-        function dismissInstall() {
-            document.getElementById('installPrompt').classList.remove('show');
+// --- INITIALISATION DE L'APPLICATION ---
+document.addEventListener('DOMContentLoaded', () => {
+    const mouvementForm = document.getElementById('mouvementForm');
+    const dateMouvementInput = document.getElementById('dateMouvement');
+    const feuilleCibleSelect = document.getElementById('feuilleCible');
+    const typeMouvementSelect = document.getElementById('typeMouvement');
+    const addMaterielBtn = document.getElementById('addMaterielBtn');
+    const chargerStockBtn = document.getElementById('chargerStockBtn');
+    const nextStepBtn = document.getElementById('nextStepBtn');
+    const prevStepBtn = document.getElementById('prevStepBtn');
+
+    // Initialisation de la date
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    dateMouvementInput.value = `${yyyy}-${mm}-${dd}`;
+
+    // Charger les données initiales pour les datalists et la visualisation
+    loadAllZonesForDatalist();
+    loadAllMaterielsForDatalist();
+    loadAvailableZonesForVisualization(); // Cette fonction appellera loadStockData pour la première zone
+
+    // Ajouter le premier matériel
+    addMaterielItem();
+
+    // Event listeners
+    typeMouvementSelect.addEventListener('change', updateFormLabelsAndVisibility);
+    feuilleCibleSelect.addEventListener('change', updateFormLabelsAndVisibility);
+    addMaterielBtn.addEventListener('click', addMaterielItem);
+    mouvementForm.addEventListener('submit', handleFormSubmit);
+    chargerStockBtn.addEventListener('click', handleLoadStock);
+
+    // Navigation du formulaire multi-étapes
+    nextStepBtn.addEventListener('click', () => {
+        // Petite validation pour passer à l'étape suivante
+        const zoneInput = document.getElementById('zoneMouvement');
+        if (!zoneInput.value.trim() || !document.getElementById('dateMouvement').value) {
+            ToastManager.show('Veuillez remplir la date et la zone avant de continuer.', 'warning');
+            return;
         }
+        showStep(2);
+    });
+    prevStepBtn.addEventListener('click', () => showStep(1));
 
-        function toggleTheme() {
-            const body = document.body;
-            const themeToggle = document.querySelector('.theme-toggle');
-            
-            if (body.getAttribute('data-theme') === 'dark') {
-                body.removeAttribute('data-theme');
-                themeToggle.textContent = '🌙';
-                localStorage.setItem('theme', 'light');
-            } else {
-                body.setAttribute('data-theme', 'dark');
-                themeToggle.textContent = '☀️';
-                localStorage.setItem('theme', 'dark');
+    // Initialiser l'affichage
+    updateFormLabelsAndVisibility();
+    showStep(1); // Assurez-vous que la première étape est affichée au démarrage
+
+    // Charger le thème sauvegardé
+    loadSavedTheme();
+
+    // Setup PWA install prompt
+    setupPWA();
+
+    // Initialize auto-save for main form
+    const autoSave = new AutoSave('#mouvementForm', 30000); // Save every 30 seconds
+    autoSave.restoreAutoSave();
+
+    // Exemple de toast de bienvenue
+    setTimeout(() => {
+        ToastManager.show('Bienvenue dans la Gestion de Stock !', 'info');
+    }, 1000);
+});
+
+// --- CLASSES D'AMÉLIORATION UX/DEV ---
+
+// Toast notification system
+class ToastManager {
+    static show(message, type = 'info', duration = 4000) {
+        const container = document.getElementById('toastContainer');
+        if (!container) return; // Fail gracefully if container not found
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.innerHTML = `
+            ${message}
+            <button class="toast-close" aria-label="Fermer la notification" onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.style.animation = 'slideInToast 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
             }
-        }
+        }, duration);
+    }
+}
 
-        function loadSavedTheme() {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                document.body.setAttribute('data-theme', 'dark');
-                document.querySelector('.theme-toggle').textContent = '☀️';
+// Auto-save functionality
+class AutoSave {
+    constructor(formSelector, saveInterval = 30000) {
+        this.form = document.querySelector(formSelector);
+        if (!this.form) {
+            console.warn('AutoSave: Form selector not found.', formSelector);
+            return;
+        }
+        this.saveInterval = saveInterval;
+        this.indicator = document.getElementById('autoSaveIndicator');
+        this.lastSave = Date.now();
+        this.autoSaveTimeout = null;
+        this.setupAutoSave();
+    }
+    
+    setupAutoSave() {
+        // Monitor changes on all inputs within the form
+        this.form.addEventListener('input', () => this.scheduleAutoSave());
+        this.form.addEventListener('change', () => this.scheduleAutoSave()); // For select/checkboxes
+        
+        // Periodically check if a save is needed
+        setInterval(() => {
+            if (Date.now() - this.lastSave > this.saveInterval && this.formChangedSinceLastSave()) {
+                this.autoSave();
             }
-        }
+        }, 5000); // Check every 5 seconds if a save is due
+    }
 
-        // Fonction pour faire des requêtes avec contournement CORS
-        async function makeRequest(url, options = {}) {
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    mode: 'cors',
-                    cache: 'no-cache'
-                });
-                
-                if (response.ok) {
-                    return response;
-                }
-                throw new Error(`HTTP ${response.status}`);
-            } catch (error) {
-                console.log('Fetch direct échoué, tentative avec contournement...');
-                return await corsWorkaround(url);
-            }
-        }
+    // Check if form data has changed since last save
+    formChangedSinceLastSave() {
+        const currentData = JSON.stringify(this.getFormData());
+        const lastSavedData = localStorage.getItem('autoSaveData_' + this.form.id);
+        return currentData !== lastSavedData;
+    }
 
-        async function corsWorkaround(url) {
-            return new Promise((resolve) => {
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.style.width = '1px';
-                iframe.style.height = '1px';
-                
-                const timeout = setTimeout(() => {
-                    document.body.removeChild(iframe);
-                    resolve({
-                        ok: true,
-                        text: () => Promise.resolve('Requête envoyée (mode contournement)'),
-                        json: () => Promise.resolve([])
-                    });
-                }, 3000);
-
-                iframe.onload = () => {
-                    clearTimeout(timeout);
-                    setTimeout(() => {
-                        document.body.removeChild(iframe);
-                        resolve({
-                            ok: true,
-                            text: () => Promise.resolve('Requête envoyée avec succès'),
-                            json: () => Promise.resolve([])
-                        });
-                    }, 1000);
-                };
-
-                iframe.src = url;
-                document.body.appendChild(iframe);
+    getFormData() {
+        const formData = new FormData(this.form);
+        // Special handling for dynamic material inputs
+        const materielItems = document.querySelectorAll('#materielsContainer .materiel-item');
+        const items = [];
+        materielItems.forEach(item => {
+            items.push({
+                materiel: item.querySelector('.materiel-input').value,
+                quantite: item.querySelector('.quantite-input').value
             });
-        }
-
-        function updateFormLabelsAndVisibility() {
-            const typeSelected = document.getElementById('typeMouvement').value;
-            const feuilleCible = document.getElementById('feuilleCible').value;
-            const zoneLabel = document.querySelector('#zoneInputFieldGroup label');
-            const feuilleCibleSelect = document.getElementById('feuilleCible');
-            const typeMouvementSelect = document.getElementById('typeMouvement');
-            const zoneMouvementInput = document.getElementById('zoneMouvement');
-
-            if (typeSelected === "Transfert") {
-                feuilleCibleSelect.querySelector('option[value="Stock Voie Creuse"]').disabled = false;
-                feuilleCibleSelect.querySelector('option[value="Stock Bibliothèque"]').disabled = false;
-                feuilleCibleSelect.querySelector('option[value="Répartition Journalière"]').disabled = true;
-                feuilleCibleSelect.querySelector('option[value="Restes Zones"]').disabled = true;
-                zoneLabel.innerHTML = '📍 Zone de Destination du Transfert:';
-                if (!['Stock Voie Creuse', 'Stock Bibliothèque'].includes(feuilleCible)) {
-                    feuilleCibleSelect.value = 'Stock Voie Creuse';
-                }
-            } else if (typeSelected === "Entrée" || typeSelected === "Sortie") {
-                feuilleCibleSelect.querySelector('option[value="Stock Voie Creuse"]').disabled = false;
-                feuilleCibleSelect.querySelector('option[value="Stock Bibliothèque"]').disabled = false;
-                feuilleCibleSelect.querySelector('option[value="Répartition Journalière"]').disabled = true;
-                feuilleCibleSelect.querySelector('option[value="Restes Zones"]').disabled = true;
-                if (typeSelected === "Entrée") {
-                    zoneLabel.innerHTML = '📍 Zone de Destination (où le matériel est ajouté):';
-                } else {
-                    zoneLabel.innerHTML = '📍 Zone d\'Origine (d\'où le matériel est retiré):';
-                }
-                zoneMouvementInput.value = NOM_FEUILLE_TO_NOM_ZONE_FRONTEND[feuilleCible] || '';
-            } else if (feuilleCible === "Répartition Journalière") {
-                zoneLabel.innerHTML = '📍 Zone de Distribution:';
-                typeMouvementSelect.value = "Entrée";
-                typeMouvementSelect.disabled = true;
-            } else if (feuilleCible === "Restes Zones") {
-                zoneLabel.innerHTML = '📍 Zone d\'Inventaire:';
-                typeMouvementSelect.value = "Entrée";
-                typeMouvementSelect.disabled = true;
-            }
-
-            if (feuilleCible !== "Répartition Journalière" && feuilleCible !== "Restes Zones") {
-                typeMouvementSelect.disabled = false;
-            }
-
-            zoneMouvementInput.required = true;
-        }
-
-        function addMaterielItem() {
-            materielCounter++;
-            const container = document.getElementById('materielsContainer');
-            
-            const materielDiv = document.createElement('div');
-            materielDiv.className = 'materiel-item';
-            materielDiv.dataset.id = materielCounter;
-            
-            materielDiv.innerHTML = `
-                <div class="materiel-inputs">
-                    <input list="materielsList" 
-                           placeholder="📦 Sélectionner ou saisir un matériel" 
-                           class="materiel-input" 
-                           required>
-                    <input type="number" 
-                           placeholder="🔢 Quantité" 
-                           class="quantite-input" 
-                           min="1" 
-                           required>
-                </div>
-                <button type="button" class="btn-danger remove-materiel-btn">🗑️ Supprimer</button>
-            `;
-            
-            container.appendChild(materielDiv);
-            
-            const removeBtn = materielDiv.querySelector('.remove-materiel-btn');
-            removeBtn.addEventListener('click', () => removeMaterielItem(materielDiv));
-            
-            updateMaterielCounter();
-        }
-
-        function removeMaterielItem(materielDiv) {
-            const container = document.getElementById('materielsContainer');
-            if (container.children.length > 1) {
-                materielDiv.remove();
-                updateMaterielCounter();
-            } else {
-                showMessage('mouvementMessage', '⚠️ Au moins un matériel est requis.', 'warning');
-            }
-        }
-
-        function updateMaterielCounter() {
-            const count = document.getElementById('materielsContainer').children.length;
-            document.getElementById('materielCount').textContent = count;
-        }
-
-        async function handleFormSubmit(event) {
-            event.preventDefault();
-            
-            const mouvementMessage = document.getElementById('mouvementMessage');
-            showMessage('mouvementMessage', '⏳ Enregistrement en cours...', 'info', true);
-
-            try {
-                const formData = {
-                    feuilleCible: document.getElementById('feuilleCible').value,
-                    date: document.getElementById('dateMouvement').value,
-                    type: document.getElementById('typeMouvement').value,
-                    zone: document.getElementById('zoneMouvement').value,
-                    items: []
-                };
-
-                const materielItems = document.querySelectorAll('.materiel-item');
-                for (const item of materielItems) {
-                    const materiel = item.querySelector('.materiel-input').value.trim();
-                    const quantite = item.querySelector('.quantite-input').value;
-                    
-                    if (!materiel || !quantite) {
-                        throw new Error('Tous les matériels doivent avoir un nom et une quantité.');
-                    }
-                    
-                    if (parseInt(quantite) <= 0) {
-                        throw new Error('La quantité doit être un nombre positif.');
-                    }
-                    
-                    formData.items.push({
-                        materiel: materiel,
-                        quantite: parseInt(quantite)
-                    });
-                }
-
-                if (formData.items.length === 0) {
-                    throw new Error('Au moins un matériel est requis.');
-                }
-
-                // Validations métier
-                if (formData.type === "Transfert") {
-                    const feuilleSource = formData.feuilleCible;
-                    const zoneDestination = formData.zone;
-                    if (!feuilleSource || !zoneDestination) {
-                        throw new Error('Pour un Transfert, la Feuille de Journalisation (Source) et la Zone de Destination sont obligatoires.');
-                    }
-                    const zoneSourceLogique = NOM_FEUILLE_TO_NOM_ZONE_FRONTEND[feuilleSource];
-                    if (!zoneSourceLogique || zoneSourceLogique === zoneDestination) {
-                        throw new Error('Pour un Transfert, la Feuille de Journalisation doit être un Stock principal (Voie Creuse/Bibliothèque) et la Zone de Destination doit être différente de la source.');
-                    }
-                } else if (document.getElementById('feuilleCible').value === "Répartition Journalière" && document.getElementById('typeMouvement').value !== "Entrée") {
-                    throw new Error('Pour "Répartition Journalière", seul le type "Entrée" est logique.');
-                } else if (document.getElementById('feuilleCible').value === "Restes Zones" && document.getElementById('typeMouvement').value !== "Entrée") {
-                    throw new Error('Pour "Restes Zones", seul le type "Entrée" (historique) est logique.');
-                }
-
-                // Enregistrement avec feedback amélioré
-                let successCount = 0;
-
-                for (let i = 0; i < formData.items.length; i++) {
-                    const item = formData.items[i];
-                    
-                    showMessage('mouvementMessage', `📝 Enregistrement ${i + 1}/${formData.items.length}: ${item.materiel}...`, 'info', true);
-                    
-                    try {
-                        const params = new URLSearchParams({
-                            action: 'addSingleMovement',
-                            feuilleCible: formData.feuilleCible,
-                            date: formData.date,
-                            type: formData.type,
-                            zone: formData.zone,
-                            materiel: item.materiel,
-                            quantite: item.quantite.toString()
-                        });
-
-                        const url = `${APP_SCRIPT_URL}?${params.toString()}`;
-                        const response = await makeRequest(url);
-
-                        if (response.ok) {
-                            successCount++;
-                            console.log(`✅ ${item.materiel} enregistré avec succès`);
-                        }
-                        
-                        // Petit délai entre les requêtes
-                        await new Promise(resolve => setTimeout(resolve, 200));
-                        
-                    } catch (error) {
-                        console.error(`Erreur pour ${item.materiel}:`, error);
-                    }
-                }
-
-                // Message de succès final avec vibration
-                if (successCount > 0) {
-                    showMessage('mouvementMessage', `✅ Mouvements enregistrés avec succès: ${successCount}/${formData.items.length} matériel(s) traité(s).`, 'success');
-                    
-                    // Vibration de succès sur mobile
-                    if (navigator.vibrate) {
-                        navigator.vibrate([200, 100, 200]);
-                    }
-                    
-                    // Reset du formulaire après succès
-                    setTimeout(() => {
-                        resetForm();
-                        loadAllZonesForDatalist();
-                        loadAllMaterielsForDatalist(); 
-                        loadAvailableZonesForVisualization();
-                    }, 2000);
-                } else {
-                    showMessage('mouvementMessage', '⚠️ Tous les matériels ont été envoyés pour traitement. Vérifiez vos données dans Google Sheets.', 'warning');
-                }
-                
-            } catch (error) {
-                console.error('Erreur lors de l\'enregistrement:', error);
-                showMessage('mouvementMessage', '❌ Erreur lors de l\'enregistrement: ' + error.message, 'error');
-                
-                // Vibration d'erreur sur mobile
-                if (navigator.vibrate) {
-                    navigator.vibrate([100, 50, 100, 50, 100]);
-                }
-            }
-        }
-
-        function resetForm() {
-            document.getElementById('mouvementForm').reset();
-            
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            document.getElementById('dateMouvement').value = `${yyyy}-${mm}-${dd}`;
-            
-            const container = document.getElementById('materielsContainer');
-            container.innerHTML = '';
-            materielCounter = 0;
-            addMaterielItem();
-            
-            updateFormLabelsAndVisibility();
-            hideMessage('mouvementMessage');
-        }
-
-        function showMessage(elementId, message, type, showLoading = false) {
-            const element = document.getElementById(elementId);
-            element.textContent = message;
-            element.className = `message ${type}`;
-            element.style.display = 'block';
-            
-            if (showLoading) {
-                element.innerHTML = `<span class="loading"></span> ${message}`;
-            }
-        }
-
-        function hideMessage(elementId) {
-            const element = document.getElementById(elementId);
-            element.style.display = 'none';
-        }
-
-        function showSuccessMessage(message) {
-            // Créer un message de succès temporaire
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message success';
-            messageDiv.textContent = message;
-            messageDiv.style.position = 'fixed';
-            messageDiv.style.top = '20px';
-            messageDiv.style.left = '50%';
-            messageDiv.style.transform = 'translateX(-50%)';
-            messageDiv.style.zIndex = '1000';
-            messageDiv.style.maxWidth = '90%';
-            
-            document.body.appendChild(messageDiv);
-            
+        });
+        return {
+            ...Object.fromEntries(formData.entries()),
+            materielItems: items
+        };
+    }
+    
+    scheduleAutoSave() {
+        clearTimeout(this.autoSaveTimeout);
+        this.autoSaveTimeout = setTimeout(() => {
+            this.autoSave();
+        }, 2000); // Save after 2 seconds of inactivity
+    }
+    
+    autoSave() {
+        const data = this.getFormData();
+        
+        // Save to localStorage
+        localStorage.setItem('autoSave_' + this.form.id, JSON.stringify({
+            data,
+            timestamp: Date.now()
+        }));
+        // Store current form state to detect changes
+        localStorage.setItem('autoSaveData_' + this.form.id, JSON.stringify(data));
+        
+        this.showSaveIndicator();
+        this.lastSave = Date.now();
+    }
+    
+    showSaveIndicator() {
+        if (this.indicator) {
+            this.indicator.classList.add('show');
             setTimeout(() => {
-                document.body.removeChild(messageDiv);
-            }, 3000);
+                this.indicator.classList.remove('show');
+            }, 2000);
         }
-
-        // Chargement des données avec fallback
-        async function loadAllZonesForDatalist() {
-            try {
-                const response = await makeRequest(`${APP_SCRIPT_URL}?get=zones`);
-                if (response.ok) {
-                    const text = await response.text();
-                    if (text && text !== 'Requête envoyée (mode contournement)') {
-                        const zones = JSON.parse(text);
-                        const zonesDatalist = document.getElementById('zonesList');
-                        zonesDatalist.innerHTML = '';
-                        zones.forEach(zone => {
-                            const option = document.createElement('option');
-                            option.value = zone;
-                            zonesDatalist.appendChild(option);
+    }
+    
+    restoreAutoSave() {
+        const saved = localStorage.getItem('autoSave_' + this.form.id);
+        if (saved) {
+            const { data, timestamp } = JSON.parse(saved);
+            // Restore if less than 12 hours old
+            if (Date.now() - timestamp < 43200000) { // 12 hours in ms
+                Object.entries(data).forEach(([name, value]) => {
+                    if (name === 'materielItems') {
+                        const container = document.getElementById('materielsContainer');
+                        container.innerHTML = ''; // Clear existing items
+                        materielCounter = 0;
+                        value.forEach(itemData => {
+                            addMaterielItem(); // Add a new item element
+                            const newItem = container.lastElementChild;
+                            newItem.querySelector('.materiel-input').value = itemData.materiel;
+                            newItem.querySelector('.quantite-input').value = itemData.quantite;
                         });
-                        return;
+                        updateMaterielCounter();
+                    } else {
+                        const input = this.form.querySelector(`[name="${name}"]`);
+                        if (input) input.value = value;
                     }
-                }
-            } catch (error) {
-                console.log('Chargement des zones échoué, utilisation des valeurs par défaut');
-            }
-            
-            // Zones par défaut si le chargement échoue
-            const defaultZones = ["Voie Creuse", "Bibliothèque", "étage 1", "étage 2", "étage 3", "étage 4", "étage 5", "reading room 1", "reading room 2", "compactus", "b26"];
-            const zonesDatalist = document.getElementById('zonesList');
-            zonesDatalist.innerHTML = '';
-            defaultZones.forEach(zone => {
-                const option = document.createElement('option');
-                option.value = zone;
-                zonesDatalist.appendChild(option);
-            });
-        }
-
-        async function loadAllMaterielsForDatalist() {
-            try {
-                const response = await makeRequest(`${APP_SCRIPT_URL}?get=materiels`);
-                if (response.ok) {
-                    const text = await response.text();
-                    if (text && text !== 'Requête envoyée (mode contournement)') {
-                        const materiels = JSON.parse(text);
-                        const materielsDatalist = document.getElementById('materielsList');
-                        materielsDatalist.innerHTML = '';
-                        materiels.forEach(materiel => {
-                            const option = document.createElement('option');
-                            option.value = materiel;
-                            materielsDatalist.appendChild(option);
-                        });
-                        return;
-                    }
-                }
-            } catch (error) {
-                console.log('Chargement des matériels échoué, utilisation des valeurs par défaut');
-            }
-            
-            // Matériels par défaut si le chargement échoue
-            const defaultMateriels = ["Cadres-palette CFF", "Cartons 60x37x38", "Couvercles cadres-palette", "Intercalaires 120x80", "Palettes 80x120", "rouleau scotch", "papier blanc"];
-            const materielsDatalist = document.getElementById('materielsList');
-            materielsDatalist.innerHTML = '';
-            defaultMateriels.forEach(materiel => {
-                const option = document.createElement('option');
-                option.value = materiel;
-                materielsDatalist.appendChild(option);
-            });
-        }
-
-        async function loadAvailableZonesForVisualization() {
-            const selectZoneVisualisation = document.getElementById('selectZoneVisualisation');
-            
-            try {
-                const response = await makeRequest(`${APP_SCRIPT_URL}?get=zones`);
-                if (response.ok) {
-                    const text = await response.text();
-                    if (text && text !== 'Requête envoyée (mode contournement)') {
-                        const zones = JSON.parse(text);
-                        
-                        selectZoneVisualisation.innerHTML = '<option value="">-- Sélectionner une zone --</option>';
-                        zones.forEach(zone => {
-                            const option = document.createElement('option');
-                            option.value = zone;
-                            option.textContent = zone;
-                            selectZoneVisualisation.appendChild(option);
-                        });
-
-                        if (zones.length > 0) {
-                            selectZoneVisualisation.value = zones[0];
-                            loadStockData(zones[0]);
-                        }
-                        return;
-                    }
-                }
-            } catch (error) {
-                console.log('Chargement des zones pour visualisation échoué');
-            }
-            
-            // Zones par défaut
-            const defaultZones = ["Voie Creuse", "Bibliothèque", "étage 1", "étage 2", "étage 3"];
-            selectZoneVisualisation.innerHTML = '<option value="">-- Sélectionner une zone --</option>';
-            defaultZones.forEach(zone => {
-                const option = document.createElement('option');
-                option.value = zone;
-                option.textContent = zone;
-                selectZoneVisualisation.appendChild(option);
-            });
-        }
-
-        async function handleLoadStock() {
-            const selectedZone = document.getElementById('selectZoneVisualisation').value;
-            if (selectedZone) {
-                loadStockData(selectedZone);
-            } else {
-                showMessage('visualisationMessage', '⚠️ Veuillez sélectionner une zone.', 'warning');
-            }
-        }
-
-        async function loadStockData(zone) {
-            showMessage('visualisationMessage', `🔍 Chargement du stock pour "${zone}"...`, 'info', true);
-            document.getElementById('stockDisplayArea').innerHTML = '';
-
-            try {
-                const response = await makeRequest(`${APP_SCRIPT_URL}?etat=1&zone=${encodeURIComponent(zone)}`);
-                
-                if (response.ok) {
-                    const text = await response.text();
-                    if (text && text !== 'Requête envoyée (mode contournement)') {
-                        const data = JSON.parse(text);
-                        displayStockData(data, zone);
-                        return;
-                    }
-                }
-                
-                // Si pas de données, afficher un message informatif
-                showMessage('visualisationMessage', `📊 Données de stock pour "${zone}" envoyées en arrière-plan. Actualisez dans quelques secondes.`, 'info');
-                
-            } catch (error) {
-                console.error('Erreur lors du chargement des données de stock:', error);
-                showMessage('visualisationMessage', `⏳ Chargement des données de stock en cours pour "${zone}". Veuillez patienter...`, 'info');
-            }
-        }
-
-        function displayStockData(data, zoneName) {
-            const stockDisplayArea = document.getElementById('stockDisplayArea');
-            const visualisationMessage = document.getElementById('visualisationMessage');
-            
-            stockDisplayArea.innerHTML = '';
-            hideMessage('visualisationMessage');
-
-            const title = document.createElement('h3');
-            title.innerHTML = `📦 État des stocks pour ${zoneName}:`;
-            title.style.color = 'var(--primary-color)';
-            title.style.textAlign = 'center';
-            title.style.marginBottom = '20px';
-            stockDisplayArea.appendChild(title);
-
-            if (data && data.length > 1) {
-                const table = document.createElement('table');
-                table.classList.add('stock-table');
-
-                let html = '<thead><tr>';
-                data[0].forEach(header => {
-                    html += `<th>${header}</th>`;
                 });
-                html += '</tr></thead><tbody>';
-
-                for (let i = 1; i < data.length; i++) {
-                    html += '<tr>';
-                    data[i].forEach(cell => {
-                        html += `<td>${cell}</td>`;
-                    });
-                    html += '</tr>';
-                }
-                html += '</tbody>';
-                table.innerHTML = html;
-                stockDisplayArea.appendChild(table);
-                
-                showMessage('visualisationMessage', `✅ Affichage de ${data.length - 1} articles.`, 'success');
+                ToastManager.show('Données restaurées depuis la sauvegarde automatique', 'info');
+                // Ensure form state is updated to avoid immediate re-save
+                localStorage.setItem('autoSaveData_' + this.form.id, JSON.stringify(data));
             } else {
-                stockDisplayArea.innerHTML += '<p style="text-align: center; color: #666; padding: 40px;">📭 Aucune donnée de stock trouvée pour cette zone ou le stock est vide.</p>';
-                showMessage('visualisationMessage', '📭 Aucune donnée de stock trouvée.', 'warning');
+                // Clear old auto-save data
+                localStorage.removeItem('autoSave_' + this.form.id);
+                localStorage.removeItem('autoSaveData_' + this.form.id);
             }
         }
+    }
+}
 
-        // Service Worker pour PWA (optionnel)
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => {
-                        console.log('Service Worker enregistré avec succès:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.log('Service Worker non disponible:', error);
-                    });
-            });
+// Progressive loading (Skeleton Loader)
+class ProgressiveLoader {
+    static showSkeleton(containerId, numRows = 3) {
+        const container = document.getElementById(containerId);
+        if (!container) return null;
+
+        const skeletonContainer = document.createElement('div');
+        skeletonContainer.className = 'skeleton-container';
+        skeletonContainer.id = 'activeSkeleton-' + containerId; // Give a unique ID
+
+        for (let i = 0; i < numRows; i++) {
+            const row = document.createElement('div');
+            row.className = 'skeleton skeleton-row';
+            // Vary width for a more natural look
+            row.style.width = `${70 + Math.random() * 30}%`;
+            skeletonContainer.appendChild(row);
         }
-    </script>
-</body>
-</html>
+        container.innerHTML = ''; // Clear existing content
+        container.appendChild(skeletonContainer);
+        skeletonContainer.style.display = 'block'; // Make it visible
+        return skeletonContainer;
+    }
+    
+    static hideSkeleton(skeletonElement) {
+        if (skeletonElement && skeletonElement.parentElement) {
+            skeletonElement.remove();
+        }
+    }
+}
+
+// Enhanced global loading states
+class LoadingManager {
+    static show() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.add('show');
+    }
+    
+    static hide() {
+        const overlay = document.getElementById('loadingOverlay');
+        if (overlay) overlay.classList.remove('show');
+    }
+}
+
+// --- VALIDATION CÔTÉ CLIENT ---
+class FormValidator {
+    static validateMovement(formData) {
+        const errors = [];
+        
+        // Sanitization and initial conversion
+        formData.zone = this.sanitizeString(formData.zone);
+        formData.feuilleCible = this.sanitizeString(formData.feuilleCible);
+        formData.type = this.sanitizeString(formData.type);
+
+        formData.items = formData.items.map(item => ({
+            materiel: this.sanitizeString(item.materiel),
+            quantite: this.sanitizeNumber(item.quantite)
+        }));
+        
+        // Basic required fields
+        if (!formData.date) errors.push("La date est obligatoire.");
+        if (!formData.zone) errors.push("La zone est obligatoire.");
+        if (!formData.type) errors.push("Le type de mouvement est obligatoire.");
+        if (!formData.feuilleCible) errors.push("La feuille cible est obligatoire.");
+
+        // Business rules validation
+        if (formData.type === "Transfert") {
+            if (!this.isValidTransferSource(formData.feuilleCible)) {
+                errors.push("Source de transfert invalide. Seuls 'Stock Voie Creuse' et 'Stock Bibliothèque' sont valides.");
+            }
+            if (this.getLogicalZone(formData.feuilleCible) === formData.zone) {
+                errors.push("Pour un transfert, la zone source et la zone de destination ne peuvent pas être identiques.");
+            }
+            if (!formData.zone || !formData.feuilleCible) {
+                errors.push("Pour un Transfert, la Feuille de Journalisation (Source) et la Zone de Destination sont obligatoires.");
+            }
+        } else if (formData.feuilleCible === "Répartition Journalière" && formData.type !== "Entrée") {
+            errors.push('Pour "Répartition Journalière", seul le type "Entrée" est logique.');
+        } else if (formData.feuilleCible === "Restes Zones" && formData.type !== "Entrée") {
+            errors.push('Pour "Restes Zones", seul le type "Entrée" (historique) est logique.');
+        }
+        
+        // Quantity and material name validation
+        if (formData.items.length === 0) {
+            errors.push('Au moins un matériel est requis.');
+        }
+        formData.items.forEach((item, index) => {
+            if (!item.materiel || item.materiel.length < 2) {
+                errors.push(`Nom de matériel trop court ou manquant pour l'article ${index + 1}.`);
+            }
+            if (item.quantite <= 0 || item.quantite > 100000) { // Max 100,000 to prevent extreme values
+                errors.push(`Quantité invalide pour l'article "${item.materiel || index + 1}". Elle doit être positive et inférieure à 100,000.`);
+            }
+        });
+        
+        return { isValid: errors.length === 0, errors };
+    }
+    
+    static sanitizeString(str) {
+        if (typeof str !== 'string') return '';
+        // Basic sanitization: remove HTML-like characters, trim whitespace, limit length
+        return str.trim().replace(/[<>'"&]/g, '').slice(0, 255);
+    }
+    
+    static sanitizeNumber(num) {
+        const parsed = parseInt(num, 10);
+        // Ensure it's a number, convert to 0 if NaN, and constrain positive values
+        return isNaN(parsed) ? 0 : Math.max(0, parsed);
+    }
+    
+    static isValidTransferSource(feuille) {
+        return ["Stock Voie Creuse", "Stock Bibliothèque"].includes(feuille);
+    }
+    
+    static getLogicalZone(feuille) {
+        const mapping = {
+            "Stock Voie Creuse": "Voie Creuse",
+            "Stock Bibliothèque": "Bibliothèque"
+        };
+        return mapping[feuille];
+    }
+}
+
+// --- PROTECTION DES DONNÉES (Exemple) ---
+class DataProtection {
+    // Génère un ID de session simple (non sécurisé pour authentification réelle)
+    static generateSessionId() {
+        return 'sess_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+    }
+}
