@@ -1,6 +1,6 @@
 // URL de votre API Google Apps Script
 // ASSUREZ-VOUS QUE C'EST LA BONNE URL DÉPLOYÉE !
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzQrltt-idECi0_Z7zgocc4gIddmcU9TbgSm-UeeM5PPpHwSyiTCKbVxOzrmH1jH1hp/exec'; // Remplacer par votre URL réelle
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwO0P3Yo5kw9PPriJPXzUMipBrzlGTR_r-Ff6OyEUnsNu-I9q-rESbBq7l2m6KLA3RJ/exec'; // Remplacer par votre URL réelle
 
 // Variables globales
 let materielCounter = 0;
