@@ -11,15 +11,15 @@
 <body>
     <header>
         <h1>📦 Gestion Stock Matériel ONU</h1>
-        <button class="theme-toggle button-enhanced" onclick="toggleTheme()" title="Changer le thème">
+        <button class="theme-toggle button-enhanced" title="Changer le thème">
             🌙
         </button>
     </header>
 
     <div class="install-prompt" id="installPrompt">
         <p>📱 <strong>Installer l'app</strong> sur votre téléphone pour un accès rapide !</p>
-        <button class="button-enhanced" onclick="installApp()">Installer</button>
-        <button class="button-enhanced" onclick="dismissInstall()">Plus tard</button>
+        <button class="button-enhanced" id="installAppBtn">Installer</button>
+        <button class="button-enhanced" id="dismissInstallBtn">Plus tard</button>
     </div>
 
     <main>
@@ -27,8 +27,8 @@
             <h2>Enregistrer un Mouvement</h2>
             <form id="mouvementForm">
                 <div class="step-indicator">
-                    <div class="step active">1</div>
-                    <div class="step">2</div>
+                    <div class="step active" data-step="1">1</div>
+                    <div class="step" data-step="2">2</div>
                 </div>
 
                 <div class="form-step active" id="step1">
@@ -96,7 +96,7 @@
             <div id="stockDisplayArea">
                 <div class="skeleton-container" id="stockSkeleton">
                     </div>
-                <p style="text-align: center; color: #666; padding: 40px;">
+                <p class="initial-message" id="initialStockMessage" style="text-align: center; color: #666; padding: 40px;">
                     Sélectionnez une zone et cliquez sur "Charger Stock" pour visualiser.
                 </p>
             </div>
@@ -120,7 +120,7 @@
 
     <script src="script.js"></script>
     <script>
-        // Service Worker pour PWA (optionnel)
+        // Service Worker pour PWA (optionnel) - ce fichier doit exister à la racine
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js')
