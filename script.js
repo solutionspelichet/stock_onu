@@ -1,6 +1,6 @@
 // URL de votre API Google Apps Script
-// ASSUREZ-VOUS QUE C'EST LA BONNE URL DÉPLOYÉE !
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwO0P3Yo5kw9PPriJPXzUMipBrzlGTR_r-Ff6OyEUnsNu-I9q-rESbBq7l2m6KLA3RJ/exec'; // Remplacer par votre URL réelle
+// REMPLACEZ CECI PAR L'URL DÉPLOYÉE DE VOTRE SCRIPT APPS !
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwO0P3Yo5kw9PPriJPXzUMipBrzlGTR_r-Ff6OyEUnsNu-I9q-rESbBq7l2m6KLA3RJ/exec';
 
 // Variables globales
 let materielCounter = 0;
@@ -92,23 +92,26 @@ class RateLimiter {
 const rateLimiter = new RateLimiter(); // Instance globale du rate limiter
 
 // --- GESTION DES REQUÊTES API (avec rate limiting et gestion d'erreur) ---
-async function makeApiRequest(endpoint, params = {}, method = 'GET', data = null) {
+async function makeApiRequest(path, params = {}, method = 'GET', data = null) {
+    // Check client-side rate limit
     if (!rateLimiter.canMakeRequest()) {
         const waitTime = Math.ceil(rateLimiter.getWaitTime() / 1000);
         ToastManager.show(`Veuillez patienter ${waitTime} secondes avant d'envoyer une nouvelle requête.`, 'warning');
         LoadingManager.hide();
-        return { ok: false, status: 429, message: 'Too Many Requests' };
+        throw new Error('Too Many Requests (client-side rate limit)');
     }
 
     const url = new URL(APP_SCRIPT_URL);
     // Ajoutez un ID client pour le rate limiting côté serveur (si implémenté)
-    params.clientId = DataProtection.generateSessionId(); // Ou un ID utilisateur réel si authentifié
+    // IMPORTANT: Ceci générera un nouvel ID à chaque requête. Pour un suivi par session, stockez-le dans localStorage.
+    params.clientId = DataProtection.generateSessionId(); 
 
+    // Add query parameters for GET requests, or for action/method in POST
     Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
 
     const options = {
         method: method,
-        mode: 'cors', // Apps Script est configuré pour gérer le CORS
+        mode: 'cors', // Apps Script est configuré pour gérer le CORS par défaut si déployé correctement
         cache: 'no-cache'
     };
 
@@ -123,7 +126,14 @@ async function makeApiRequest(endpoint, params = {}, method = 'GET', data = null
         const response = await fetch(url.toString(), options);
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`HTTP Error: ${response.status} - ${errorText}`);
+            let errorMessage = `HTTP Error: ${response.status} - ${errorText}`;
+            try {
+                const errorJson = JSON.parse(errorText);
+                errorMessage = errorJson.error || errorMessage;
+            } catch (e) {
+                // Not JSON, use plain text
+            }
+            throw new Error(errorMessage);
         }
         return response;
     } catch (error) {
@@ -131,7 +141,6 @@ async function makeApiRequest(endpoint, params = {}, method = 'GET', data = null
         throw error; // Re-throw to be caught by the calling function
     }
 }
-
 
 // --- GESTION DU FORMULAIRE MULTI-ÉTAPES ---
 function showStep(stepNumber) {
@@ -185,6 +194,9 @@ function setupPWA() {
         deferredPrompt = e;
         document.getElementById('installPrompt').classList.add('show');
     });
+
+    document.getElementById('installAppBtn').addEventListener('click', installApp);
+    document.getElementById('dismissInstallBtn').addEventListener('click', dismissInstall);
 }
 
 function installApp() {
@@ -207,7 +219,7 @@ function dismissInstall() {
 
 
 // --- FORMULAIRE D'ENREGISTREMENT DE MOUVEMENT ---
-// Mapping pour la PWA
+// Mapping des noms de feuilles vers les zones logiques pour le frontend
 const NOM_FEUILLE_TO_NOM_ZONE_FRONTEND = {
     "Stock Voie Creuse": "Voie Creuse",
     "Stock Bibliothèque": "Bibliothèque",
@@ -311,21 +323,21 @@ async function handleFormSubmit(event) {
     
     try {
         const formData = {
-            feuilleCible: sanitizeInput(document.getElementById('feuilleCible').value),
+            feuilleCible: document.getElementById('feuilleCible').value,
             date: document.getElementById('dateMouvement').value,
-            type: sanitizeInput(document.getElementById('typeMouvement').value),
-            zone: sanitizeInput(document.getElementById('zoneMouvement').value),
+            type: document.getElementById('typeMouvement').value,
+            zone: document.getElementById('zoneMouvement').value,
             items: []
         };
 
         const materielItems = document.querySelectorAll('.materiel-item');
         for (const item of materielItems) {
-            const materiel = sanitizeInput(item.querySelector('.materiel-input').value);
+            const materiel = item.querySelector('.materiel-input').value;
             const quantite = item.querySelector('.quantite-input').value;
             
             formData.items.push({
                 materiel: materiel,
-                quantite: quantite // Sanitized to number by FormValidator
+                quantite: quantite
             });
         }
 
@@ -336,31 +348,12 @@ async function handleFormSubmit(event) {
             return;
         }
 
-        // Use the submitBatchMovement for API calls
-        const results = await submitBatchMovement(formData);
+        // Use submitBatchMovement for API calls
+        const apiResponse = await sendBatchToAPI(formData); // This now sends as POST
+        const resultJson = await apiResponse.json();
 
-        let successCount = 0;
-        let failureMessages = [];
-
-        results.forEach(result => {
-            if (result.status === 'fulfilled') {
-                try {
-                    const responseText = result.value;
-                    if (responseText.startsWith('Succès:')) {
-                         successCount++;
-                    } else {
-                        failureMessages.push(responseText);
-                    }
-                } catch (parseError) {
-                    failureMessages.push("Réponse API inattendue pour un item.");
-                }
-            } else {
-                failureMessages.push(result.reason.message || "Erreur inconnue.");
-            }
-        });
-
-        if (successCount > 0) {
-            ToastManager.show(`✅ Mouvements enregistrés avec succès : ${successCount}/${formData.items.length} matériel(s) traité(s).`, 'success');
+        if (apiResponse.ok && resultJson.overallStatus === "success") {
+            ToastManager.show(`✅ Mouvements enregistrés avec succès : ${formData.items.length} matériel(s) traité(s).`, 'success');
             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
             
             resetForm();
@@ -368,16 +361,19 @@ async function handleFormSubmit(event) {
             loadAllZonesForDatalist();
             loadAllMaterielsForDatalist(); 
             loadAvailableZonesForVisualization();
-        } 
-        
-        if (failureMessages.length > 0) {
-            ToastManager.show(`⚠️ Certaines opérations ont échoué : ${failureMessages.join(', ')}. Vérifiez vos données dans Google Sheets.`, 'warning', 10000);
+        } else if (apiResponse.ok && resultJson.overallStatus === "partial_success") {
+            const failedItems = resultJson.results.filter(r => r.status === "failed");
+            const successCount = resultJson.results.length - failedItems.length;
+            const failureMessages = failedItems.map(item => `${item.materiel}: ${item.message}`);
+            
+            ToastManager.show(`⚠️ Opération partielle : ${successCount} succès, ${failedItems.length} échecs. Détails : ${failureMessages.join('; ')}.`, 'warning', 10000);
             if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
-        } else if (successCount === 0) {
-            ToastManager.show('❌ Aucun mouvement n\'a pu être enregistré. Vérifiez vos entrées.', 'error');
+        } else {
+            // Error already handled by makeApiRequest, but ensure a final toast
+            ToastManager.show(`❌ Échec de l'enregistrement: ${resultJson.error || 'Erreur inconnue.'}`, 'error');
             if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
         }
-
+        
     } catch (error) {
         console.error('Erreur lors de l\'enregistrement:', error);
         ToastManager.show('❌ Erreur générale lors de l\'enregistrement : ' + error.message, 'error');
@@ -387,32 +383,26 @@ async function handleFormSubmit(event) {
     }
 }
 
-// Fonction pour soumettre un lot de mouvements à l'API Apps Script
-async function sendBatchToAPI(batch) {
+// Fonction pour envoyer un lot de mouvements à l'API Apps Script
+async function sendBatchToAPI(formData) {
     const params = {
         action: 'addBatchMovement', // Nouvelle action pour le traitement par lot
-        feuilleCible: batch.feuilleCible,
-        date: batch.date,
-        type: batch.type,
-        zone: batch.zone,
+        // Base parameters for the batch, actual items go in the body
+        feuilleCible: formData.feuilleCible,
+        date: formData.date,
+        type: formData.type,
+        zone: formData.zone,
     };
 
-    // Encoder les items en JSON string pour l'envoi en POST
     const batchData = {
-        items: batch.items.map(item => ({
+        items: formData.items.map(item => ({
             materiel: item.materiel,
             quantite: item.quantite
         }))
     };
 
-    try {
-        const response = await makeApiRequest('', params, 'POST', batchData); // Envoi en POST
-        const resultText = await response.text();
-        return resultText; // Le script Apps doit retourner un texte de succès/échec
-    } catch (error) {
-        console.error("Erreur lors de l'envoi du lot à l'API:", error);
-        throw new Error(`Échec de l'envoi d'un lot: ${error.message}`);
-    }
+    // Send as POST request
+    return makeApiRequest('', params, 'POST', batchData); 
 }
 
 
@@ -449,7 +439,8 @@ async function loadAllZonesForDatalist() {
         } catch (error) {
             console.error('Erreur lors du chargement des zones depuis l\'API:', error);
             // Fallback to default zones
-            zones = ["Voie Creuse", "Bibliothèque", "étage 1", "étage 2", "étage 3", "étage 4", "étage 5", "reading room 1", "reading room 2", "compactus", "b26"];
+            // Ensure this fallback list is always consistent with Apps Script's predefined list
+            zones = ["Voie Creuse", "Bibliothèque", "étage 1", "étage 2", "étage 3", "étage 4", "étage 5", "étage 6", "étage 7", "étage 8", "étage 9", "étage 10", "reading room 1", "reading room 2", "compactus", "b26"];
             ToastManager.show('Chargement des zones API échoué. Utilisation des zones par défaut.', 'warning');
         }
     }
@@ -529,11 +520,13 @@ async function handleLoadStock() {
     }
 }
 
+// Load stock data with skeleton loader
 async function loadStockData(zone) {
     LoadingManager.show(`Chargement du stock pour "${zone}"...`);
-    document.getElementById('stockDisplayArea').innerHTML = ''; // Clear previous data
+    document.getElementById('initialStockMessage').style.display = 'none'; // Hide initial message
+    const stockDisplayArea = document.getElementById('stockDisplayArea');
     
-    const skeleton = ProgressiveLoader.showSkeleton('stockDisplayArea'); // Show skeleton
+    const skeleton = ProgressiveLoader.showSkeleton('stockDisplayArea', 5); // Show skeleton for 5 rows
 
     try {
         const response = await makeApiRequest(`?etat=1&zone=${encodeURIComponent(zone)}`);
@@ -545,7 +538,7 @@ async function loadStockData(zone) {
     } catch (error) {
         console.error('Erreur lors du chargement des données de stock:', error);
         ProgressiveLoader.hideSkeleton(skeleton); // Hide skeleton
-        document.getElementById('stockDisplayArea').innerHTML = `
+        stockDisplayArea.innerHTML = `
             <p style="text-align: center; color: var(--error-color); padding: 40px;">
                 ❌ Erreur lors du chargement des données pour "${zone}". Veuillez réessayer.
             </p>
@@ -569,7 +562,7 @@ function displayStockData(data, zoneName) {
 
     if (data && data.length > 1) {
         const tableContainer = document.createElement('div');
-        tableContainer.classList.add('table-responsive');
+        tableContainer.classList.add('table-responsive'); // Apply responsive class
 
         const table = document.createElement('table');
         table.classList.add('stock-table');
@@ -629,6 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addMaterielItem();
 
     // Event listeners
+    document.querySelector('.theme-toggle').addEventListener('click', toggleTheme); // Event listener for theme toggle
     typeMouvementSelect.addEventListener('change', updateFormLabelsAndVisibility);
     feuilleCibleSelect.addEventListener('change', updateFormLabelsAndVisibility);
     addMaterielBtn.addEventListener('click', addMaterielItem);
@@ -639,7 +633,8 @@ document.addEventListener('DOMContentLoaded', () => {
     nextStepBtn.addEventListener('click', () => {
         // Petite validation pour passer à l'étape suivante
         const zoneInput = document.getElementById('zoneMouvement');
-        if (!zoneInput.value.trim() || !document.getElementById('dateMouvement').value) {
+        const dateInput = document.getElementById('dateMouvement');
+        if (!dateInput.value.trim() || !zoneInput.value.trim()) {
             ToastManager.show('Veuillez remplir la date et la zone avant de continuer.', 'warning');
             return;
         }
@@ -790,8 +785,10 @@ class AutoSave {
                         value.forEach(itemData => {
                             addMaterielItem(); // Add a new item element
                             const newItem = container.lastElementChild;
-                            newItem.querySelector('.materiel-input').value = itemData.materiel;
-                            newItem.querySelector('.quantite-input').value = itemData.quantite;
+                            if (newItem) { // Ensure element was added
+                                newItem.querySelector('.materiel-input').value = itemData.materiel;
+                                newItem.querySelector('.quantite-input').value = itemData.quantite;
+                            }
                         });
                         updateMaterielCounter();
                     } else {
@@ -819,7 +816,7 @@ class ProgressiveLoader {
 
         const skeletonContainer = document.createElement('div');
         skeletonContainer.className = 'skeleton-container';
-        skeletonContainer.id = 'activeSkeleton-' + containerId; // Give a unique ID
+        skeletonContainer.id = 'activeSkeleton-' + containerId; // Give a unique ID to manage it
 
         for (let i = 0; i < numRows; i++) {
             const row = document.createElement('div');
@@ -828,7 +825,7 @@ class ProgressiveLoader {
             row.style.width = `${70 + Math.random() * 30}%`;
             skeletonContainer.appendChild(row);
         }
-        container.innerHTML = ''; // Clear existing content
+        container.innerHTML = ''; // Clear existing content before adding skeleton
         container.appendChild(skeletonContainer);
         skeletonContainer.style.display = 'block'; // Make it visible
         return skeletonContainer;
@@ -866,7 +863,8 @@ class FormValidator {
 
         formData.items = formData.items.map(item => ({
             materiel: this.sanitizeString(item.materiel),
-            quantite: this.sanitizeNumber(item.quantite)
+            // Quantité est déjà parsée en entier par auto-save ou input type="number"
+            quantite: this.sanitizeNumber(item.quantite) 
         }));
         
         // Basic required fields
@@ -933,10 +931,15 @@ class FormValidator {
     }
 }
 
-// --- PROTECTION DES DONNÉES (Exemple) ---
+// --- PROTECTION DES DONNÉES (Exemple pour ID Client) ---
 class DataProtection {
     // Génère un ID de session simple (non sécurisé pour authentification réelle)
     static generateSessionId() {
-        return 'sess_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+        let sessionId = localStorage.getItem('clientId');
+        if (!sessionId) {
+            sessionId = 'sess_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+            localStorage.setItem('clientId', sessionId);
+        }
+        return sessionId;
     }
 }
